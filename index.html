@@ -3,172 +3,128 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>影の城と王の遺産</title>
+  <title>ゲームプレイヤー</title>
   <style>
-    body { font-family: 'Yu Mincho', Georgia, serif; margin: 0; padding: 20px; background-color: #1c1815; color: #e0d8c3; min-height: 100vh; display: flex; justify-content: center; }
-    .card { width: 100%; max-width: 500px; background: #2a2421; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.8); border: 1px solid #d4a359; height: fit-content; }
-    h1 { font-size: 1.3rem; border-bottom: 1px solid #d4a359; padding-bottom: 10px; margin-top: 0; text-align: center; color: #d4a359; }
-    .inventory { background: #12100e; color: #d4a359; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.95rem; border: 1px solid #57483e; }
-    /* 書き出し用HTMLにも white-space: pre-wrap を適用 */
-    p { line-height: 1.8; font-size: 1.05rem; background: #f4e8c1; color: #2b1d0c; padding: 15px; border-radius: 6px; white-space: pre-wrap; }
-    .choice-btn { width: 100%; padding: 12px; margin-top: 10px; background: #3a302a; color: #f0e6d2; border: 1px solid #d4a359; border-radius: 6px; cursor: pointer; text-align: left; font-size: 1rem; font-family: inherit; }
-    .choice-btn:active { background: #57483e; }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-color: #1a1a1a;
+      color: #fff;
+    }
+
+    /* 上部の操作バー */
+    .controls {
+      padding: 12px 16px;
+      background-color: #2a2a2a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #444;
+      z-index: 10;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    select {
+      padding: 8px 12px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background-color: #333;
+      color: #fff;
+      cursor: pointer;
+      min-width: 220px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
+    /* ゲーム表示・初期メッセージ領域 */
+    .player-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+    }
+
+    /* 中央メッセージのスタイル */
+    .placeholder-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20px;
+      font-weight: bold;
+      color: #aaa;
+      text-align: center;
+      pointer-events: none; /* メッセージの背後への操作を邪魔しない */
+      white-space: nowrap;
+    }
+
+    iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
   </style>
 </head>
 <body>
-<div class="card">
-  <h1>影の城と王の遺産</h1>
-  <div class="inventory">🎒 所持品: <span id="inventory-list">なし</span></div>
-  <p id="text-area"></p>
-  <div id="choices-area"></div>
-</div>
-<script>
-  const gameData = {
-  "title": "影の城と王の遺産",
-  "startNode": "start",
-  "nodes": {
-    "start": {
-      "parentId": "",
-      "text": "あなたは暗くじめじめとした部屋の中で目が覚めた。ここは地下牢だろうか。わたしはいったい、どうしてこんなところに……。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "辺りを見渡す",
-          "target": "0-1",
-          "requiredItem": "",
-          "forbiddenItem": ""
-        }
-      ]
-    },
-    "0-1": {
-      "parentId": "start",
-      "text": "辺りを見渡してみる。出口には鉄格子がはめられていた。わたしの目覚めた場所のとなりには、白骨化した死体が横たわっている……。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "鉄格子を調べる",
-          "target": "0-2",
-          "requiredItem": "",
-          "forbiddenItem": ""
-        },
-        {
-          "text": "白骨死体を調べる",
-          "target": "0-3",
-          "requiredItem": "",
-          "forbiddenItem": "錆びた鍵"
-        }
-      ]
-    },
-    "0-2": {
-      "parentId": "0-1",
-      "text": "鉄格子を調べてみた。扉は冷たく頑丈で、びくともしない。この鉄格子には鍵がかかっているようだ。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "錆びた鍵を使う",
-          "target": "1-0",
-          "requiredItem": "錆びた鍵",
-          "forbiddenItem": ""
-        },
-        {
-          "text": "引き返す",
-          "target": "0-1",
-          "requiredItem": "",
-          "forbiddenItem": ""
-        }
-      ]
-    },
-    "0-3": {
-      "parentId": "0-1",
-      "text": "死体を調べてみた。死体は完全に白骨化しており、まるで死後何十年も放置されていたかのようであった。よく見てみると、彼は何かを握りしめているようだ。それは錆びてボロボロの鍵と、一枚の紙きれであった。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "回収する",
-          "target": "0-3-0",
-          "requiredItem": "",
-          "forbiddenItem": ""
-        }
-      ]
-    },
-    "0-3-0": {
-      "parentId": "0-3",
-      "text": "紙切れには震えた字で何かが書かれていた。最後の力を振り絞って書いたのだろうか、判別の難しい字もあったが、なんとか読むことはできる。\n\n「王よ……なぜ我らを見捨てるのか……もしお前が目覚める時が来るのなら、王を……影の王を止めてくれ……」\n\n『錆びた鍵』と『兵士の遺言』を手に入れた",
-      "addItem": "錆びた鍵,兵士の遺言",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "戻る",
-          "target": "0-1",
-          "requiredItem": "",
-          "forbiddenItem": ""
-        }
-      ]
-    },
-    "1-0": {
-      "parentId": "",
-      "text": "新しいシーンです。",
-      "addItem": "",
-      "removeItem": "錆びた鍵",
-      "choices": []
+
+  <!-- 操作バー -->
+  <div class="controls">
+    <label for="htmlSelect">ゲームを選択:</label>
+    <select id="htmlSelect" onchange="loadSelectedHtml()">
+      <!-- 初期状態（未選択） -->
+      <option value="" disabled selected>-- ゲームを選んでください --</option>
+      <!-- ここにゲームのHTMLファイルを指定します -->
+      <option value="game1.html">ゲーム 1</option>
+      <option value="game2.html">ゲーム 2</option>
+      <option value="game3.html">ゲーム 3</option>
+    </select>
+  </div>
+
+  <!-- 表示エリア -->
+  <div class="player-container">
+    <!-- 中央に表示されるメッセージ -->
+    <div id="placeholder" class="placeholder-message">
+      遊びたいゲームを左上から選択してください
+    </div>
+    <!-- ゲーム画面（初期状態では何も読み込まない） -->
+    <iframe id="playerFrame" src="" allow="fullscreen"></iframe>
+  </div>
+
+  <script>
+    function loadSelectedHtml() {
+      const selectElement = document.getElementById('htmlSelect');
+      const frame = document.getElementById('playerFrame');
+      const placeholder = document.getElementById('placeholder');
+
+      if (selectElement.value) {
+        // 選択されたらiframeにURLを設定し、メッセージを非表示にする
+        frame.src = selectElement.value;
+        placeholder.style.display = 'none';
+      }
     }
-  }
-};
-  let inventory = [];
+  </script>
 
-  function parseItemList(str) {
-    if (!str) return [];
-    return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  }
-
-  function updateInventoryUI() {
-    document.getElementById('inventory-list').textContent = inventory.length > 0 ? inventory.join(', ') : 'なし';
-  }
-
-  function play(nodeId) {
-    if (nodeId === gameData.startNode) inventory = [];
-
-    const node = gameData.nodes[nodeId];
-    if (!node) return;
-
-    if (node.addItem) {
-      const itemsToAdd = parseItemList(node.addItem);
-      itemsToAdd.forEach(item => {
-        if (!inventory.includes(item)) inventory.push(item);
-      });
-    }
-    if (node.removeItem) {
-      const itemsToRemove = parseItemList(node.removeItem);
-      inventory = inventory.filter(item => !itemsToRemove.includes(item));
-    }
-    updateInventoryUI();
-
-    document.getElementById('text-area').textContent = node.text;
-    const container = document.getElementById('choices-area');
-    container.innerHTML = '';
-
-    node.choices.forEach((c, idx) => {
-      // 必要アイテムチェック (すべて所持)
-      const reqList = parseItemList(c.requiredItem);
-      if (reqList.length > 0 && !reqList.every(item => inventory.includes(item))) return;
-
-      // 禁止アイテムチェック (いずれか1つでも所持なら不可)
-      const forbList = parseItemList(c.forbiddenItem);
-      if (forbList.length > 0 && forbList.some(item => inventory.includes(item))) return;
-
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.textContent = (idx + 1) + '. ' + c.text;
-      btn.onclick = () => play(c.target);
-      container.appendChild(btn);
-    });
-  }
-
-  play(gameData.startNode || 'start');
-</script>
 </body>
 </html>

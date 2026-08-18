@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地下迷宮の冒険</title>
+  <style>
+    body { font-family: 'Yu Mincho', Georgia, serif; margin: 0; padding: 20px; background-color: #1c1815; color: #e0d8c3; min-height: 100vh; display: flex; justify-content: center; }
+    .card { width: 100%; max-width: 500px; background: #2a2421; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.8); border: 1px solid #d4a359; height: fit-content; }
+    h1 { font-size: 1.3rem; border-bottom: 1px solid #d4a359; padding-bottom: 10px; margin-top: 0; text-align: center; color: #d4a359; }
+    .inventory { background: #12100e; color: #d4a359; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.95rem; border: 1px solid #57483e; }
+    /* 書き出し用HTMLにも white-space: pre-wrap を適用 */
+    p { line-height: 1.8; font-size: 1.05rem; background: #f4e8c1; color: #2b1d0c; padding: 15px; border-radius: 6px; white-space: pre-wrap; }
+    .choice-btn { width: 100%; padding: 12px; margin-top: 10px; background: #3a302a; color: #f0e6d2; border: 1px solid #d4a359; border-radius: 6px; cursor: pointer; text-align: left; font-size: 1rem; font-family: inherit; }
+    .choice-btn:active { background: #57483e; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>地下迷宮の冒険</h1>
+  <div class="inventory">🎒 所持品: <span id="inventory-list">なし</span></div>
+  <p id="text-area"></p>
+  <div id="choices-area"></div>
+</div>
+<script>
+  const gameData = {
+  "title": "地下迷宮の冒険",
+  "startNode": "start",
+  "nodes": {
+    "start": {
+      "text": "古びた部屋の中央に\n\n「古い鍵」が落ちている。\n",
+      "addItem": "古い鍵,松明",
+      "removeItem": "",
+      "choices": [
+        {
+          "text": "鍵を拾って扉へ向かう",
+          "target": "door",
+          "requiredItem": ""
+        }
+      ]
+    },
+    "door": {
+      "text": "頑丈な鉄の扉が立ちふさがっている。鍵穴があるようだ。",
+      "addItem": "",
+      "removeItem": "",
+      "choices": [
+        {
+          "text": "古い鍵を使って扉を開ける",
+          "target": "treasure",
+          "requiredItem": "古い鍵"
+        },
+        {
+          "text": "体当たりで壊そうとする",
+          "target": "start",
+          "requiredItem": "",
+          "forbiddenItem": "古い鍵"
+        }
+      ],
+      "parentId": "start"
+    },
+    "treasure": {
+      "text": "鍵が噛み合い、扉が開いた！奥にあった「伝説の宝剣」を手に入れた！脱出成功！",
+      "addItem": "伝説の宝剣",
+      "removeItem": "古い鍵",
+      "choices": [
+        {
+          "text": "最初からやり直す",
+          "target": "start",
+          "requiredItem": ""
+        }
+      ],
+      "parentId": "door"
+    },
+    "trap": {
+      "text": "扉はビクともしない。大きな音が響き渡り、天井から岩が降ってきた……！ゲームオーバー。",
+      "addItem": "",
+      "removeItem": "",
+      "choices": [
+        {
+          "text": "最初からやり直す",
+          "target": "start",
+          "requiredItem": ""
+        }
+      ]
+    },
+    "scene_6286": {
+      "text": "新しいシーンです。",
+      "addItem": "",
+      "removeItem": "",
+      "choices": []
+    }
+  }
+};
+  let inventory = [];
+
+  function parseItemList(str) {
+    if (!str) return [];
+    return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  }
+
+  function updateInventoryUI() {
+    document.getElementById('inventory-list').textContent = inventory.length > 0 ? inventory.join(', ') : 'なし';
+  }
+
+  function play(nodeId) {
+    if (nodeId === gameData.startNode) inventory = [];
+
+    const node = gameData.nodes[nodeId];
+    if (!node) return;
+
+    if (node.addItem) {
+      const itemsToAdd = parseItemList(node.addItem);
+      itemsToAdd.forEach(item => {
+        if (!inventory.includes(item)) inventory.push(item);
+      });
+    }
+    if (node.removeItem) {
+      const itemsToRemove = parseItemList(node.removeItem);
+      inventory = inventory.filter(item => !itemsToRemove.includes(item));
+    }
+    updateInventoryUI();
+
+    document.getElementById('text-area').textContent = node.text;
+    const container = document.getElementById('choices-area');
+    container.innerHTML = '';
+
+    node.choices.forEach((c, idx) => {
+      // 必要アイテムチェック (すべて所持)
+      const reqList = parseItemList(c.requiredItem);
+      if (reqList.length > 0 && !reqList.every(item => inventory.includes(item))) return;
+
+      // 禁止アイテムチェック (いずれか1つでも所持なら不可)
+      const forbList = parseItemList(c.forbiddenItem);
+      if (forbList.length > 0 && forbList.some(item => inventory.includes(item))) return;
+
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.textContent = (idx + 1) + '. ' + c.text;
+      btn.onclick = () => play(c.target);
+      container.appendChild(btn);
+    });
+  }
+
+  play(gameData.startNode || 'start');
+</script>
+</body>
+</html>

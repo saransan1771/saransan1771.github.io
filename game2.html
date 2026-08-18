@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>地下迷宮の冒険 - ゲームブック</title>
+  <style>
+    :root {
+      --bg-color: #1c1815;
+      --card-bg: #2a2421;
+      --paper-bg: #f4e8c1;
+      --paper-text: #2b1d0c;
+      --accent-color: #d4a359;
+      --danger-color: #b33939;
+      --btn-bg: #3a302a;
+      --btn-active: #57483e;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: #e0d8c3;
+      font-family: 'Hiragino Mincho ProN', 'Yu Mincho', Georgia, serif;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    #game-container {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background-color: var(--card-bg);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+
+    /* ステータスバー */
+    #status-bar {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 12px;
+      background-color: #12100e;
+      border-bottom: 2px solid var(--accent-color);
+      font-size: 1rem;
+      font-weight: bold;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 本文エリア */
+    #story-card {
+      flex: 1;
+      margin: 15px;
+      padding: 20px;
+      background-color: var(--paper-bg);
+      color: var(--paper-text);
+      border-radius: 8px;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+      overflow-y: auto;
+      line-height: 1.7;
+      font-size: 1.05rem;
+    }
+
+    /* ダイス結果エリア */
+    #dice-result {
+      display: none;
+      margin-top: 15px;
+      padding: 10px;
+      background-color: rgba(0, 0, 0, 0.08);
+      border-left: 4px solid var(--paper-text);
+      font-weight: bold;
+    }
+
+    /* 選択肢ボタンエリア */
+    #choices-container {
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background-color: #1a1614;
+      border-top: 1px solid #332b25;
+    }
+
+    .choice-btn {
+      width: 100%;
+      min-height: 52px;
+      padding: 12px 16px;
+      background-color: var(--btn-bg);
+      color: #f0e6d2;
+      border: 1px solid var(--accent-color);
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color 0.1s, transform 0.05s;
+      display: flex;
+      align-items: center;
+    }
+
+    .choice-btn:active {
+      background-color: var(--btn-active);
+      transform: scale(0.98);
+    }
+
+    .choice-number {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      background-color: var(--accent-color);
+      color: #000;
+      border-radius: 50%;
+      text-align: center;
+      font-weight: bold;
+      margin-right: 12px;
+      flex-shrink: 0;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- ステータス表示 -->
+  <div id="status-bar">
+    <div class="status-item">❤️ HP: <span id="hp-val">10</span>/<span id="max-hp-val">10</span></div>
+    <div class="status-item">💰 金貨: <span id="gold-val">0</span></div>
+    <div class="status-item">🗡️ 武器: <span id="weapon-val">短剣</span></div>
+  </div>
+
+  <!-- テキスト表示エリア -->
+  <div id="story-card">
+    <div id="story-text"></div>
+    <div id="dice-result"></div>
+  </div>
+
+  <!-- 選択肢ボタン -->
+  <div id="choices-container"></div>
+</div>
+
+<script>
+  // プレイヤーのステータス管理
+  let state = {
+    hp: 10,
+    maxHp: 10,
+    gold: 0,
+    weapon: "短剣",
+    hasKey: false
+  };
+
+  // ストーリーデータ（ノード管理）
+  const story = {
+    start: {
+      text: "あなたは古びた石造りの地下迷宮の入口に立っている。湿った冷気が肌を刺し、奥からはかすかな唸り声が聞こえる……。腰には使い古された短剣がある。",
+      choices: [
+        { text: "松明を灯して正面の階段を降りる", target: "stairs" },
+        { text: "壁沿いの狭い抜け道を調べる", target: "passage" }
+      ]
+    },
+    stairs: {
+      text: "広間に躍り出た。中央には大きな木箱が置かれているが、その手前には腹をすかせた巨大なネズミが立ちふさがっている！",
+      choices: [
+        { text: "短剣を構えてネズミに襲いかかる（要ダイス判定）", target: "fight_rat" },
+        { text: "手持ちの干し肉を投げて気をそらす", target: "feed_rat" }
+      ]
+    },
+    passage: {
+      text: "狭い通路を進むと、行き止まりに倒れた冒険者の骨を見つけた。骨の手に握られた小さな袋と、奥へ続く隠し扉がある。",
+      choices: [
+        { text: "袋を拾って隠し扉を開ける", target: "get_key", action: () => { state.gold += 5; state.hasKey = true; } },
+        { text: "触れずに隠し扉だけを開ける", target: "treasure_room" }
+      ]
+    },
+    get_key: {
+      text: "袋の中には金貨5枚と「鉄の鍵」が入っていた！あなたはそれらを懐にしまい、隠し扉の先へ進んだ。",
+      choices: [
+        { text: "先へ進む", target: "treasure_room" }
+      ]
+    },
+    feed_rat: {
+      text: "干し肉を投げつけると、ネズミは夢中でかぶりついた。その隙に宝箱に近づくことができる。",
+      choices: [
+        { text: "宝箱を調べる", target: "chest" }
+      ]
+    },
+    fight_rat: {
+      text: "サイコロを振って運を天に任せよう！",
+      diceCheck: {
+        targetRoll: 3, // 3以上で成功
+        onSuccess: {
+          text: "サイコロの目は【{roll}】！見事に短剣でネズミを追い払った！",
+          target: "chest"
+        },
+        onFailure: {
+          text: "サイコロの目は【{roll}】……！ネズミに噛みつかれ、2ポイントのダメージを受けた！",
+          target: "chest",
+          action: () => { damagePlayer(2); }
+        }
+      }
+    },
+    chest: {
+      text: "宝箱には頑丈な錠前がかかっている。",
+      choices: [
+        { 
+          text: "鉄の鍵を使って開ける", 
+          target: "chest_open", 
+          condition: () => state.hasKey 
+        },
+        { text: "無理やりこじ開けようとする（要ダイス判定）", target: "force_chest" },
+        { text: "宝箱を諦めて奥の出口へ向かう", target: "exit_gate" }
+      ]
+    },
+    chest_open: {
+      text: "鍵が見事に合致した！箱を開けると、眩しい光とともに魔法の剣と金貨20枚を手に入れた！",
+      action: () => { state.gold += 20; state.weapon = "魔法の剣"; },
+      choices: [
+        { text: "誇らしく出口へ向かう", target: "exit_gate" }
+      ]
+    },
+    force_chest: {
+      text: "宝箱を壊そうと短剣を叩きつけた！",
+      diceCheck: {
+        targetRoll: 5, // 5以上で成功
+        onSuccess: {
+          text: "サイコロの目は【{roll}】！見事に錠前が砕け、中から金貨10枚を見つけた！",
+          target: "exit_gate",
+          action: () => { state.gold += 10; }
+        },
+        onFailure: {
+          text: "サイコロの目は【{roll}】。刃が弾け飛び、罠が発動して毒針が刺さった！（3ダメージ）",
+          target: "exit_gate",
+          action: () => { damagePlayer(3); }
+        }
+      }
+    },
+    exit_gate: {
+      text: "地上へと続く重い鉄格子が見えてきた。あなたは無事に地下迷宮から脱出することができた！",
+      choices: [
+        { text: "冒険の結果を見る", target: "ending" }
+      ]
+    },
+    ending: {
+      text: "", // JSで動的に構築
+      isEnding: true,
+      choices: [
+        { text: "もう一度最初から遊ぶ", target: "restart" }
+      ]
+    },
+    gameover: {
+      text: "あなたは力を使い果たし、倒れてしまった……。地下迷宮の闇があなたを包み込む。",
+      choices: [
+        { text: "タイトルに戻る", target: "restart" }
+      ]
+    }
+  };
+
+  // UI更新関数
+  function updateStatus() {
+    document.getElementById('hp-val').textContent = state.hp;
+    document.getElementById('max-hp-val').textContent = state.maxHp;
+    document.getElementById('gold-val').textContent = state.gold;
+    document.getElementById('weapon-val').textContent = state.weapon;
+  }
+
+  function damagePlayer(amount) {
+    state.hp = Math.max(0, state.hp - amount);
+    updateStatus();
+  }
+
+  // シーン描画
+  function renderScene(sceneKey) {
+    if (sceneKey === 'restart') {
+      state = { hp: 10, maxHp: 10, gold: 0, weapon: "短剣", hasKey: false };
+      updateStatus();
+      sceneKey = 'start';
+    }
+
+    const scene = story[sceneKey];
+    const storyTextEl = document.getElementById('story-text');
+    const diceEl = document.getElementById('dice-result');
+    const choicesEl = document.getElementById('choices-container');
+
+    diceEl.style.display = 'none';
+    choicesEl.innerHTML = '';
+
+    // アクションの実行（ステータス変更など）
+    if (scene.action) {
+      scene.action();
+      updateStatus();
+    }
+
+    // プレイヤー死亡チェック
+    if (state.hp <= 0 && sceneKey !== 'gameover') {
+      renderScene('gameover');
+      return;
+    }
+
+    // エンディング画面のテキスト生成
+    if (scene.isEnding) {
+      storyTextEl.innerHTML = `
+        <strong>【脱出成功！】</strong><br><br>
+        あなたの最終ステータス：<br>
+        ・残りHP: ${state.hp}/${state.maxHp}<br>
+        ・獲得した金貨: ${state.gold}枚<br>
+        ・装備: ${state.weapon}<br><br>
+        ${state.gold >= 25 ? "大富豪となって伝説として語り継がれた！" : "無事に生きて生還できただけでも良しとしよう。"}
+      `;
+    } else {
+      storyTextEl.textContent = scene.text;
+    }
+
+    // ダイス判定があるノードの場合
+    if (scene.diceCheck) {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.innerHTML = `<span class="choice-number">🎲</span> ダイスを振る (1D6)`;
+      btn.onclick = () => {
+        const roll = Math.floor(Math.random() * 6) + 1;
+        const isSuccess = roll >= scene.diceCheck.targetRoll;
+        const resData = isSuccess ? scene.diceCheck.onSuccess : scene.diceCheck.onFailure;
+
+        diceEl.style.display = 'block';
+        diceEl.textContent = resData.text.replace('{roll}', roll);
+        
+        if (resData.action) resData.action();
+
+        // ダイス後の進むボタン作成
+        choicesEl.innerHTML = '';
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'choice-btn';
+        nextBtn.innerHTML = `<span class="choice-number">➔</span> 次へ進む`;
+        nextBtn.onclick = () => renderScene(resData.target);
+        choicesEl.appendChild(nextBtn);
+      };
+      choicesEl.appendChild(btn);
+      return;
+    }
+
+    // 選択肢の表示
+    if (scene.choices) {
+      scene.choices.forEach((choice, index) => {
+        // 条件（鍵を持っているか等）を満たしていない場合は非表示
+        if (choice.condition && !choice.condition()) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerHTML = `<span class="choice-number">${index + 1}</span> ${choice.text}`;
+        btn.onclick = () => renderScene(choice.target);
+        choicesEl.appendChild(btn);
+      });
+    }
+  }
+
+  // 初期化
+  updateStatus();
+  renderScene('start');
+</script>
+
+</body>
+</html>
