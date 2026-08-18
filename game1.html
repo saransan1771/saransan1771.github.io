@@ -1,147 +1,955 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>地下迷宮の冒険</title>
-  <style>
-    body { font-family: 'Yu Mincho', Georgia, serif; margin: 0; padding: 20px; background-color: #1c1815; color: #e0d8c3; min-height: 100vh; display: flex; justify-content: center; }
-    .card { width: 100%; max-width: 500px; background: #2a2421; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.8); border: 1px solid #d4a359; height: fit-content; }
-    h1 { font-size: 1.3rem; border-bottom: 1px solid #d4a359; padding-bottom: 10px; margin-top: 0; text-align: center; color: #d4a359; }
-    .inventory { background: #12100e; color: #d4a359; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.95rem; border: 1px solid #57483e; }
-    /* 書き出し用HTMLにも white-space: pre-wrap を適用 */
-    p { line-height: 1.8; font-size: 1.05rem; background: #f4e8c1; color: #2b1d0c; padding: 15px; border-radius: 6px; white-space: pre-wrap; }
-    .choice-btn { width: 100%; padding: 12px; margin-top: 10px; background: #3a302a; color: #f0e6d2; border: 1px solid #d4a359; border-radius: 6px; cursor: pointer; text-align: left; font-size: 1rem; font-family: inherit; }
-    .choice-btn:active { background: #57483e; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lane Defender - Refactored</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 360px;
+            height: 600px;
+            background-color: #1e1e1e;
+            border: 4px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #4CAF50;
+        }
+
+        p {
+            font-size: 13px;
+            color: #ccc;
+            line-height: 1.4;
+            margin: 0 0 15px 0;
+        }
+
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin: 4px 0;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+        }
+
+        .btn-easy { background-color: #2196F3; }
+        .btn-easy:hover { background-color: #1e88e5; }
+        .btn-hard { background-color: #ff9800; }
+        .btn-hard:hover { background-color: #f57c00; }
+        .btn-endless { background-color: #9c27b0; }
+        .btn-endless:hover { background-color: #7b1fa2; }
+        .btn-debug { background-color: #e91e63; }
+        .btn-debug:hover { background-color: #c2185b; }
+
+        #hud {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 5;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #levelup-screen {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .upgrade-card {
+            background: #2a2a2a;
+            border: 2px solid #4CAF50;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin: 6px 0;
+            width: 100%;
+            cursor: pointer;
+            text-align: left;
+            transition: transform 0.1s, background 0.2s;
+            box-sizing: border-box;
+        }
+
+        .upgrade-card:hover {
+            background: #333;
+            transform: scale(1.02);
+        }
+
+        .upgrade-title {
+            font-weight: bold;
+            color: #4CAF50;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .upgrade-desc {
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
-<div class="card">
-  <h1>地下迷宮の冒険</h1>
-  <div class="inventory">🎒 所持品: <span id="inventory-list">なし</span></div>
-  <p id="text-area"></p>
-  <div id="choices-area"></div>
-</div>
-<script>
-  const gameData = {
-  "title": "地下迷宮の冒険",
-  "startNode": "start",
-  "nodes": {
-    "start": {
-      "text": "古びた部屋の中央に\n\n「古い鍵」が落ちている。\n",
-      "addItem": "古い鍵,松明",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "鍵を拾って扉へ向かう",
-          "target": "door",
-          "requiredItem": ""
+
+    <div id="game-container">
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div><span id="time-label">残り</span>: <span id="time-left">300</span>s</div>
+            <div>Lv.<span id="level">1</span> (次: <span id="next-exp">5</span>)</div>
+            <div>撃破: <span id="score">0</span></div>
+        </div>
+
+        <!-- スタート画面 -->
+        <div id="start-screen" class="ui-overlay">
+            <h1>LANE DEFENDER</h1>
+            <p>画面下部の直線レーン上で左右に動き、敵を迎撃せよ！<br><b>操作方法:</b> [A]/[D]キー または 画面左右タップ</p>
+            <p style="margin-bottom: 8px; font-weight: bold; color: #fff;">難易度を選択してください</p>
+            <button class="btn btn-easy" data-difficulty="easy">イージー (出現頻度・制限時間 半分)</button>
+            <button class="btn" data-difficulty="normal">ノーマル (通常)</button>
+            <button class="btn btn-hard" data-difficulty="hard">ハード (出現頻度・制限時間 倍)</button>
+            <button class="btn btn-endless" data-difficulty="endless">エンドレス (制限時間なし)</button>
+        </div>
+
+        <!-- レベルアップ選択画面 -->
+        <div id="levelup-screen" class="ui-overlay hidden">
+            <h1>LEVEL UP!</h1>
+            <p>ランダム抽選された3つからパワーアップを選択</p>
+            <div id="upgrade-options" style="width: 100%;"></div>
+        </div>
+
+        <!-- リザルト画面 -->
+        <div id="result-screen" class="ui-overlay hidden">
+            <h1 id="result-title">ゲームクリア！</h1>
+            <p>最終レベル: <span id="final-level">1</span><br>スコア（撃破数）: <span id="final-score">0</span></p>
+            <button class="btn" id="restart-btn">タイトルに戻る</button>
+        </div>
+
+        <canvas id="gameCanvas" width="360" height="600"></canvas>
+    </div>
+
+    <!-- 外部の敵マネージャーファイル読み込み -->
+    <script src="enemyManager.js"></script>
+
+    <!-- メインゲームスクリプト -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI要素
+        const UI = {
+            startScreen: document.getElementById('start-screen'),
+            levelupScreen: document.getElementById('levelup-screen'),
+            resultScreen: document.getElementById('result-screen'),
+            restartBtn: document.getElementById('restart-btn'),
+            hud: document.getElementById('hud'),
+            timeLabel: document.getElementById('time-label'),
+            timeLeft: document.getElementById('time-left'),
+            level: document.getElementById('level'),
+            nextExp: document.getElementById('next-exp'),
+            score: document.getElementById('score'),
+            upgradeOptions: document.getElementById('upgrade-options'),
+            resultTitle: document.getElementById('result-title'),
+            finalLevel: document.getElementById('final-level'),
+            finalScore: document.getElementById('final-score')
+        };
+
+        // ゲーム設定
+        const LANE_Y = 520;
+        const LANE_MIN_X = 60;
+        const LANE_MAX_X = 300;
+        const SWORD_SWING_DURATION = 12;
+
+        let gameState = 'START';
+        let currentDifficulty = 'normal';
+        let score = 0;
+        let level = 1;
+        let exp = 0;
+        let nextLevelExp = 5;
+        let timeLeft = 300;
+        let endlessSeconds = 0;
+        let gameTimer = null;
+        let spawnTimer = null;
+        let shootCooldown = 0;
+        let swordCooldown = 0;
+        let pingpongCooldown = 0;
+        let bombCooldown = 0;
+        let swordSwingTimer = 0;
+
+        let homingSlashEffects = [];
+        let bullets = [];
+        let pingpongBalls = [];
+        let bombs = [];
+
+        // 敵マネージャーのインスタンス化
+        const enemyManager = new EnemyManager(LANE_MIN_X, LANE_MAX_X);
+
+        // 自機データ
+        let player = {
+            x: 180,
+            y: LANE_Y,
+            speed: 6,
+            size: 26,
+            dir: 0,
+            shootLevel: 0,
+            swordReachLevel: 0,
+            pingpongLevel: 0,
+            bombLevel: 0,
+            attackSpeedLevel: 0,
+            powerLevel: 0
+        };
+
+        // 入力管理
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            if (['a', 'A', 'ArrowLeft'].includes(e.key)) keys.left = true;
+            if (['d', 'D', 'ArrowRight'].includes(e.key)) keys.right = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (['a', 'A', 'ArrowLeft'].includes(e.key)) keys.left = false;
+            if (['d', 'D', 'ArrowRight'].includes(e.key)) keys.right = false;
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            const rect = canvas.getBoundingClientRect();
+            player.dir = (e.clientX - rect.left < canvas.width / 2) ? -1 : 1;
+        });
+        canvas.addEventListener('pointerup', () => {
+            if (gameState === 'PLAYING') player.dir = 0;
+        });
+
+        function initGame(difficulty) {
+            currentDifficulty = difficulty;
+            score = 0;
+            level = 1;
+            exp = 0;
+            endlessSeconds = 0;
+
+            nextLevelExp = (difficulty === 'debug') ? 1 : 5;
+
+            if (difficulty === 'easy') timeLeft = 150;
+            else if (difficulty === 'hard') timeLeft = 600;
+            else if (difficulty === 'endless' || difficulty === 'debug') timeLeft = 0;
+            else timeLeft = 300;
+
+            UI.timeLabel.textContent = (difficulty === 'endless' || difficulty === 'debug') ? "経過" : "残り";
+
+            enemyManager.clear();
+            bullets = [];
+            pingpongBalls = [];
+            bombs = [];
+            homingSlashEffects = [];
+            shootCooldown = 0;
+            swordCooldown = 0;
+            pingpongCooldown = 0;
+            bombCooldown = 0;
+            swordSwingTimer = 0;
+            
+            player.x = 180;
+            player.speed = 6;
+            player.size = 26;
+            player.dir = 0;
+            player.shootLevel = 0;
+            player.swordReachLevel = 0;
+            player.pingpongLevel = 0;
+            player.bombLevel = 0;
+            player.attackSpeedLevel = 0;
+            player.powerLevel = 0;
+
+            updateHUD();
         }
-      ]
-    },
-    "door": {
-      "text": "頑丈な鉄の扉が立ちふさがっている。鍵穴があるようだ。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "古い鍵を使って扉を開ける",
-          "target": "treasure",
-          "requiredItem": "古い鍵"
-        },
-        {
-          "text": "体当たりで壊そうとする",
-          "target": "start",
-          "requiredItem": "",
-          "forbiddenItem": "古い鍵"
+
+        function updateHUD() {
+            UI.score.textContent = score;
+            UI.level.textContent = level;
+            UI.nextExp.textContent = Math.max(0, nextLevelExp - exp);
+            UI.timeLeft.textContent = (currentDifficulty === 'endless' || currentDifficulty === 'debug') ? endlessSeconds : timeLeft;
         }
-      ],
-      "parentId": "start"
-    },
-    "treasure": {
-      "text": "鍵が噛み合い、扉が開いた！奥にあった「伝説の宝剣」を手に入れた！脱出成功！",
-      "addItem": "伝説の宝剣",
-      "removeItem": "古い鍵",
-      "choices": [
-        {
-          "text": "最初からやり直す",
-          "target": "start",
-          "requiredItem": ""
+
+        function startGame(difficulty) {
+            initGame(difficulty);
+            UI.startScreen.classList.add('hidden');
+            UI.resultScreen.classList.add('hidden');
+            UI.levelupScreen.classList.add('hidden');
+            UI.hud.classList.remove('hidden');
+            gameState = 'PLAYING';
+
+            clearInterval(gameTimer);
+            clearTimeout(spawnTimer);
+
+            gameTimer = setInterval(() => {
+                if (gameState === 'PLAYING') {
+                    if (currentDifficulty === 'endless' || currentDifficulty === 'debug') {
+                        endlessSeconds++;
+                    } else {
+                        timeLeft--;
+                        if (timeLeft <= 0) endGame(true);
+                    }
+                    updateHUD();
+                }
+            }, 1000);
+
+            scheduleSpawn();
         }
-      ],
-      "parentId": "door"
-    },
-    "trap": {
-      "text": "扉はビクともしない。大きな音が響き渡り、天井から岩が降ってきた……！ゲームオーバー。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": [
-        {
-          "text": "最初からやり直す",
-          "target": "start",
-          "requiredItem": ""
+
+        function getElapsedSeconds() {
+            if (currentDifficulty === 'endless' || currentDifficulty === 'debug') return endlessSeconds;
+            if (currentDifficulty === 'easy') return 150 - timeLeft;
+            if (currentDifficulty === 'hard') return 600 - timeLeft;
+            return 300 - timeLeft;
         }
-      ]
-    },
-    "scene_6286": {
-      "text": "新しいシーンです。",
-      "addItem": "",
-      "removeItem": "",
-      "choices": []
-    }
-  }
-};
-  let inventory = [];
 
-  function parseItemList(str) {
-    if (!str) return [];
-    return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  }
+        function scheduleSpawn() {
+            if (gameState !== 'PLAYING' && gameState !== 'LEVELUP') return;
+            
+            const elapsed = getElapsedSeconds();
+            const minutesPassed = Math.floor(elapsed / 60);
+            // 出現の重み：初期0、1分毎に5増加、最大30
+            const starWeight = Math.min(30, minutesPassed * 5);
 
-  function updateInventoryUI() {
-    document.getElementById('inventory-list').textContent = inventory.length > 0 ? inventory.join(', ') : 'なし';
-  }
+            if (gameState === 'PLAYING') {
+                enemyManager.spawn(elapsed, level, starWeight);
+            }
 
-  function play(nodeId) {
-    if (nodeId === gameData.startNode) inventory = [];
+            let nextSpawn = Math.max(300, 1500 - elapsed * 2 - (level - 1) * 40);
+            
+            if (currentDifficulty === 'easy') nextSpawn *= 2;
+            else if (currentDifficulty === 'hard') nextSpawn = Math.max(150, nextSpawn / 2);
 
-    const node = gameData.nodes[nodeId];
-    if (!node) return;
+            spawnTimer = setTimeout(scheduleSpawn, nextSpawn);
+        }
 
-    if (node.addItem) {
-      const itemsToAdd = parseItemList(node.addItem);
-      itemsToAdd.forEach(item => {
-        if (!inventory.includes(item)) inventory.push(item);
-      });
-    }
-    if (node.removeItem) {
-      const itemsToRemove = parseItemList(node.removeItem);
-      inventory = inventory.filter(item => !itemsToRemove.includes(item));
-    }
-    updateInventoryUI();
+        function triggerLevelUp() {
+            gameState = 'LEVELUP';
+            const allUpgrades = [];
+            
+            if (player.shootLevel < 3) {
+                allUpgrades.push({
+                    title: "武器：拳銃 (Lv.UP)",
+                    desc: "前方へ放射状に発射する弾数が増加します",
+                    apply: () => player.shootLevel++
+                });
+            }
 
-    document.getElementById('text-area').textContent = node.text;
-    const container = document.getElementById('choices-area');
-    container.innerHTML = '';
+            if (player.swordReachLevel < 4) {
+                allUpgrades.push({
+                    title: "武器：剣 - リーチ強化 (Lv.UP)",
+                    desc: "剣の攻撃範囲がさらに大きく広がります",
+                    apply: () => player.swordReachLevel++
+                });
+            }
 
-    node.choices.forEach((c, idx) => {
-      // 必要アイテムチェック (すべて所持)
-      const reqList = parseItemList(c.requiredItem);
-      if (reqList.length > 0 && !reqList.every(item => inventory.includes(item))) return;
+            if (player.pingpongLevel < 5) {
+                allUpgrades.push({
+                    title: "武器：ピンポン玉 (Lv.UP)",
+                    desc: "高速でランダム方向に飛び、壁で跳ね返るピンポン玉を発射します",
+                    apply: () => player.pingpongLevel++
+                });
+            }
 
-      // 禁止アイテムチェック (いずれか1つでも所持なら不可)
-      const forbList = parseItemList(c.forbiddenItem);
-      if (forbList.length > 0 && forbList.some(item => inventory.includes(item))) return;
+            if (player.bombLevel < 4) {
+                allUpgrades.push({
+                    title: "武器：爆弾 (Lv.UP)",
+                    desc: "ランダム方向に発射され、停止後に爆発します",
+                    apply: () => player.bombLevel++
+                });
+            }
 
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.textContent = (idx + 1) + '. ' + c.text;
-      btn.onclick = () => play(c.target);
-      container.appendChild(btn);
-    });
-  }
+            allUpgrades.push(
+                { title: "パッシブ：攻撃力上昇 (Lv.UP)", desc: "すべての攻撃力が1ずつ上昇します", apply: () => player.powerLevel++ },
+                { title: "パッシブ：攻撃速度アップ (Lv.UP)", desc: "すべての武器の攻撃頻度が早くなります", apply: () => player.attackSpeedLevel++ }
+            );
 
-  play(gameData.startNode || 'start');
-</script>
+            allUpgrades.sort(() => Math.random() - 0.5);
+            const choices = allUpgrades.slice(0, 3);
+
+            UI.upgradeOptions.innerHTML = '';
+            choices.forEach(choice => {
+                const card = document.createElement('div');
+                card.className = 'upgrade-card';
+                card.innerHTML = `<div class="upgrade-title">${choice.title}</div><div class="upgrade-desc">${choice.desc}</div>`;
+                card.onclick = () => {
+                    choice.apply();
+                    UI.levelupScreen.classList.add('hidden');
+                    gameState = 'PLAYING';
+                    updateHUD();
+                };
+                UI.upgradeOptions.appendChild(card);
+            });
+
+            UI.levelupScreen.classList.remove('hidden');
+        }
+
+        function endGame(isClear) {
+            gameState = 'GAMEOVER';
+            clearInterval(gameTimer);
+            clearTimeout(spawnTimer);
+            UI.hud.classList.add('hidden');
+            UI.resultScreen.classList.remove('hidden');
+            
+            UI.resultTitle.textContent = isClear ? "CLEAR!" : "GAME OVER";
+            UI.resultTitle.style.color = isClear ? "#4CAF50" : "#f44336";
+            UI.finalLevel.textContent = level;
+            UI.finalScore.textContent = score;
+        }
+
+        function destroyEnemy(index) {
+            let en = enemyManager.enemies[index];
+
+            if (en.type === 'circle') {
+                const explosionDamage = Math.floor(en.maxHp / 2);
+                const explosionRadius = 80;
+
+                homingSlashEffects.push({ x: en.x, y: en.y, timer: 12, radius: explosionRadius, color: '#ff9800' });
+
+                for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                    if (i === index) continue;
+                    let target = enemyManager.enemies[i];
+                    let dx = target.x - en.x;
+                    let dy = target.y - en.y;
+                    if (dx * dx + dy * dy <= explosionRadius * explosionRadius) {
+                        target.hp -= explosionDamage;
+                    }
+                }
+            }
+
+            enemyManager.enemies.splice(index, 1);
+            score++;
+            exp++;
+            checkLevelUp();
+        }
+
+        function handleBullets() {
+            if (player.shootLevel > 0) {
+                shootCooldown++;
+                const baseInterval = Math.max(12, 45 - player.shootLevel * 3);
+                const interval = Math.max(8, baseInterval - player.attackSpeedLevel * 6);
+
+                if (shootCooldown >= interval) {
+                    shootCooldown = 0;
+                    const count = player.shootLevel;
+                    const maxSpreadAngle = Math.min(Math.PI * 0.45, 0.12 * (count - 1)); 
+                    const bulletSpeed = 7.5;
+                    const isPiercing = (count >= 3);
+
+                    for (let i = 0; i < count; i++) {
+                        const angle = (count === 1) ? -Math.PI / 2 : -Math.PI / 2 - maxSpreadAngle / 2 + maxSpreadAngle * (i / (count - 1));
+                        bullets.push({
+                            x: player.x,
+                            y: player.y - 15,
+                            vx: Math.cos(angle) * bulletSpeed,
+                            vy: Math.sin(angle) * bulletSpeed,
+                            size: 4,
+                            piercing: isPiercing,
+                            damage: 2 + player.powerLevel
+                        });
+                    }
+                }
+            }
+
+            for (let b = bullets.length - 1; b >= 0; b--) {
+                let bullet = bullets[b];
+                bullet.x += bullet.vx;
+                bullet.y += bullet.vy;
+
+                if (bullet.y < 0 || bullet.x < 0 || bullet.x > canvas.width) {
+                    bullets.splice(b, 1);
+                    continue;
+                }
+
+                let removed = false;
+                for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                    let en = enemyManager.enemies[i];
+                    let dx = bullet.x - en.x;
+                    let dy = bullet.y - en.y;
+
+                    let hitRadius = (en.type === 'bar') ? en.width : (en.size / 2);
+                    if (dx * dx + dy * dy < (bullet.size + hitRadius) ** 2) {
+                        en.hp -= bullet.damage;
+                        if (en.hp <= 0) destroyEnemy(i);
+                        
+                        if (!bullet.piercing) {
+                            bullets.splice(b, 1);
+                            removed = true;
+                            break;
+                        }
+                    }
+                }
+                if (removed) continue;
+            }
+        }
+
+        function handlePingPongBalls() {
+            if (player.pingpongLevel > 0) {
+                pingpongCooldown++;
+                const baseInterval = Math.max(40, (70 - player.pingpongLevel * 8) * 2);
+                const interval = Math.max(24, baseInterval - player.attackSpeedLevel * 12);
+
+                if (pingpongCooldown >= interval) {
+                    pingpongCooldown = 0;
+                    const count = player.pingpongLevel;
+                    const speed = 9.0;
+                    const isMax = (player.pingpongLevel >= 5);
+
+                    for (let i = 0; i < count; i++) {
+                        const angle = -Math.PI + Math.random() * Math.PI;
+                        pingpongBalls.push({
+                            x: player.x,
+                            y: player.y - 15,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: isMax ? 5.0 : 2.5,
+                            damage: (isMax ? 2 : 1) + player.powerLevel,
+                            life: 600,
+                            hitEnemies: new Set()
+                        });
+                    }
+                }
+            }
+
+            for (let p = pingpongBalls.length - 1; p >= 0; p--) {
+                let ball = pingpongBalls[p];
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+                ball.life--;
+
+                if (ball.life <= 0 || ball.y < ball.size) {
+                    pingpongBalls.splice(p, 1);
+                    continue;
+                }
+
+                if (ball.x < ball.size || ball.x > canvas.width - ball.size) {
+                    ball.x = Math.max(ball.size, Math.min(canvas.width - ball.size, ball.x));
+                    ball.vx *= -1;
+                }
+                if (ball.y > canvas.height - ball.size) {
+                    ball.y = canvas.height - ball.size;
+                    ball.vy *= -1;
+                }
+
+                for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                    let en = enemyManager.enemies[i];
+                    let dx = ball.x - en.x;
+                    let dy = ball.y - en.y;
+                    let hitRadius = (en.type === 'bar') ? en.width : (en.size / 2);
+
+                    if (dx * dx + dy * dy < (ball.size + hitRadius) ** 2) {
+                        if (!ball.hitEnemies.has(i)) {
+                            en.hp -= ball.damage;
+                            ball.hitEnemies.add(i);
+                            if (en.hp <= 0) destroyEnemy(i);
+                        }
+                    }
+                }
+            }
+        }
+
+        function triggerBombExplosion(bomb) {
+            const isMax = (player.bombLevel >= 4);
+            const radius = (40 + player.bombLevel * 15) * (isMax ? 4 : 2);
+            const damage = (isMax ? 8 : 4) + player.powerLevel;
+
+            homingSlashEffects.push({ x: bomb.x, y: bomb.y, timer: 15, radius: radius, color: isMax ? '#2196F3' : '#f44336' });
+
+            for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                let en = enemyManager.enemies[i];
+                let dx = en.x - bomb.x;
+                let dy = en.y - bomb.y;
+                if (dx * dx + dy * dy <= radius * radius) {
+                    en.hp -= damage;
+                    if (en.hp <= 0) destroyEnemy(i);
+                }
+            }
+        }
+
+        function handleBombs() {
+            if (player.bombLevel > 0) {
+                bombCooldown++;
+                const baseInterval = Math.max(60, 160 - player.bombLevel * 15);
+                const interval = Math.max(40, baseInterval - player.attackSpeedLevel * 15);
+
+                if (bombCooldown >= interval) {
+                    bombCooldown = 0;
+                    const spawnCount = (player.bombLevel >= 4) ? 3 : 2;
+
+                    for (let k = 0; k < spawnCount; k++) {
+                        const angle = -Math.PI + Math.random() * Math.PI;
+                        bombs.push({
+                            x: player.x,
+                            y: player.y - 15,
+                            vx: Math.cos(angle) * 14.0,
+                            vy: Math.sin(angle) * 14.0,
+                            size: 5,
+                            isMax: (player.bombLevel >= 4),
+                            state: 'moving',
+                            stopTimer: 0
+                        });
+                    }
+                }
+            }
+
+            for (let b = bombs.length - 1; b >= 0; b--) {
+                let bomb = bombs[b];
+                if (bomb.state === 'moving') {
+                    bomb.x += bomb.vx;
+                    bomb.y += bomb.vy;
+                    bomb.vx *= 0.985;
+                    bomb.vy *= 0.985;
+
+                    if (bomb.x < bomb.size || bomb.x > canvas.width - bomb.size) {
+                        bomb.x = Math.max(bomb.size, Math.min(canvas.width - bomb.size, bomb.x));
+                        bomb.vx *= -1;
+                    }
+                    if (bomb.y < bomb.size || bomb.y > canvas.height - bomb.size) {
+                        bomb.y = Math.max(bomb.size, Math.min(canvas.height - bomb.size, bomb.y));
+                        bomb.vy *= -1;
+                    }
+
+                    if (Math.abs(bomb.vx) < 0.05 && Math.abs(bomb.vy) < 0.05) {
+                        bomb.vx = 0; bomb.vy = 0;
+                        bomb.state = 'stopped';
+                    }
+
+                    let exploded = false;
+                    for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                        let en = enemyManager.enemies[i];
+                        let dx = bomb.x - en.x;
+                        let dy = bomb.y - en.y;
+                        let hitRadius = (en.type === 'bar') ? en.width : (en.size / 2);
+                        if (dx * dx + dy * dy < (bomb.size + hitRadius) ** 2) {
+                            triggerBombExplosion(bomb);
+                            bombs.splice(b, 1);
+                            exploded = true;
+                            break;
+                        }
+                    }
+                    if (exploded) continue;
+                } else if (bomb.state === 'stopped') {
+                    bomb.stopTimer++;
+                    if (bomb.stopTimer >= 60) {
+                        triggerBombExplosion(bomb);
+                        bombs.splice(b, 1);
+                    }
+                }
+            }
+        }
+
+        function handleSword() {
+            if (player.swordReachLevel > 0) {
+                swordCooldown++;
+                const baseCooldown = Math.max(15, 80 - player.attackSpeedLevel * 12);
+                
+                if (swordCooldown >= baseCooldown) {
+                    swordCooldown = 0;
+                    
+                    if (player.swordReachLevel >= 4 && enemyManager.enemies.length > 0) {
+                        let closestIndex = 0;
+                        let minDst = Infinity;
+
+                        for (let i = 0; i < enemyManager.enemies.length; i++) {
+                            let dx = enemyManager.enemies[i].x - player.x;
+                            let dy = enemyManager.enemies[i].y - player.y;
+                            let dist = dx * dx + dy * dy;
+                            if (dist < minDst) {
+                                minDst = dist;
+                                closestIndex = i;
+                            }
+                        }
+
+                        let target = enemyManager.enemies[closestIndex];
+                        target.hp -= 20 + player.powerLevel;
+                        homingSlashEffects.push({ x: target.x, y: target.y, timer: 10, color: '#00bcd4' });
+                        if (target.hp <= 0) destroyEnemy(closestIndex);
+                    }
+                    swordSwingTimer = SWORD_SWING_DURATION;
+                }
+
+                if (swordSwingTimer > 0) {
+                    swordSwingTimer--;
+                    let baseReach = 15 + player.swordReachLevel * 36;
+                    let swordLength = (player.swordReachLevel >= 4) ? baseReach * 0.4 : baseReach;
+                    const progress = 1 - (swordSwingTimer / SWORD_SWING_DURATION);
+                    const currentAngle = -Math.PI + (Math.PI * progress);
+
+                    for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                        let en = enemyManager.enemies[i];
+                        let dx = en.x - player.x;
+                        let dy = en.y - player.y;
+                        let hitRadius = (en.type === 'bar') ? en.width : (en.size / 2);
+
+                        if (dx * dx + dy * dy <= (swordLength + hitRadius) ** 2 && dy <= 0) {
+                            if (Math.abs(Math.atan2(dy, dx) - currentAngle) < 0.5) {
+                                en.hp -= 3 + player.powerLevel;
+                                if (en.hp <= 0) destroyEnemy(i);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (let e = homingSlashEffects.length - 1; e >= 0; e--) {
+                homingSlashEffects[e].timer--;
+                if (homingSlashEffects[e].timer <= 0) homingSlashEffects.splice(e, 1);
+            }
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            if (keys.left) player.x -= player.speed;
+            else if (keys.right) player.x += player.speed;
+            else if (player.dir !== 0) player.x += player.dir * player.speed;
+            
+            player.x = Math.max(LANE_MIN_X, Math.min(LANE_MAX_X, player.x));
+
+            handleBullets();
+            handlePingPongBalls();
+            handleBombs();
+            handleSword();
+
+            // 敵マネージャーのアップデート処理（移動・画面下部到達判定、子機生成コールバック）
+            enemyManager.update(player.y, () => {
+                endGame(false);
+            }, (spawnX, spawnY) => {
+                // 星型から定期的に生み出されるHP1の小さな敵
+                enemyManager.enemies.push({
+                    type: 'normal',
+                    x: spawnX,
+                    y: spawnY,
+                    size: 12,
+                    speed: 2.5,
+                    hp: 1,
+                    maxHp: 1
+                });
+            });
+
+            // プレイヤーと敵の直接衝突判定
+            for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
+                let en = enemyManager.enemies[i];
+                let dx = player.x - en.x;
+                let dy = player.y - en.y;
+                let hitRadius = (en.type === 'bar') ? en.width : (en.size / 2);
+
+                if (dx * dx + dy * dy < (player.size / 2 + hitRadius) ** 2) {
+                    enemyManager.enemies.splice(i, 1);
+                    score++;
+                    exp++;
+                    checkLevelUp();
+                }
+            }
+        }
+
+        function checkLevelUp() {
+            if (exp >= nextLevelExp) {
+                level++;
+                exp = 0;
+                if (currentDifficulty !== 'debug') nextLevelExp += 3;
+                triggerLevelUp();
+            }
+            updateHUD();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // レーン描画
+            ctx.beginPath();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 4;
+            ctx.moveTo(LANE_MIN_X - 10, LANE_Y);
+            ctx.lineTo(LANE_MAX_X + 10, LANE_Y);
+            ctx.stroke();
+
+            // 弾描画
+            for (let b of bullets) {
+                ctx.fillStyle = b.piercing ? '#00bcd4' : '#FFEB3B';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // ピンポン玉描画
+            for (let ball of pingpongBalls) {
+                ctx.fillStyle = '#ff4081';
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+　　　　　　// 爆弾描画
+            for (let bomb of bombs) {
+                let renderColor = bomb.isMax ? '#2196F3' : '#ff5722';
+                let strokeColor = bomb.isMax ? '#e3f2fd' : '#ffeb3b';
+
+                // 停止状態のときは一定間隔で点滅させる
+                if (bomb.state === 'stopped') {
+                    // stopTimerの進行に応じて点滅（例：約8フレーム毎に色を反転）
+                    const isFlash = Math.floor(bomb.stopTimer / 8) % 2 === 0;
+                    if (isFlash) {
+                        renderColor = '#ffffff'; // 点滅時に白く光る
+                        strokeColor = '#ff0000'; // 枠線も赤く強調
+                    }
+                }
+
+                ctx.fillStyle = renderColor;
+                ctx.beginPath();
+                ctx.arc(bomb.x, bomb.y, bomb.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            // 敵の描画をEnemyManagerに委譲
+            enemyManager.draw(ctx);
+
+            // エフェクト描画
+            for (let eff of homingSlashEffects) {
+                ctx.save();
+                ctx.translate(eff.x, eff.y);
+                if (eff.radius) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, eff.radius * (1 - eff.timer / 15), 0, Math.PI * 2);
+                    ctx.strokeStyle = eff.color === '#2196F3' ? `rgba(33, 150, 243, ${eff.timer / 15})` : `rgba(244, 67, 54, ${eff.timer / 15})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = eff.color || '#00bcd4';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-16, -16); ctx.lineTo(16, 16);
+                    ctx.moveTo(16, -16); ctx.lineTo(-16, 16);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // 剣の軌跡描画
+            if (player.swordReachLevel > 0 && swordSwingTimer > 0) {
+                let baseReach = 15 + player.swordReachLevel * 36;
+                let swordLength = (player.swordReachLevel >= 4) ? baseReach * 0.4 : baseReach;
+                const progress = 1 - (swordSwingTimer / SWORD_SWING_DURATION);
+                const currentAngle = -Math.PI + (Math.PI * progress);
+
+                const tipX = player.x + Math.cos(currentAngle) * swordLength;
+                const tipY = player.y + Math.sin(currentAngle) * swordLength;
+
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(tipX, tipY);
+                ctx.strokeStyle = '#00bcd4';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            // 自機描画
+            const pHalf = player.size / 2;
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(player.x - pHalf, player.y - pHalf, player.size, player.size);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(player.x - pHalf, player.y - pHalf, player.size, player.size);
+
+            // 自機の目玉描画
+            const eyeOffsets = [-6, 6];
+            for (let offsetX of eyeOffsets) {
+                // 白目
+                ctx.beginPath();
+                ctx.arc(player.x + offsetX, player.y - 2, 4.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // 黒目（移動方向や少しランダムに動くように演出も可能ですが、まずは中心に配置）
+                ctx.beginPath();
+                ctx.arc(player.x + offsetX, player.y - 2, 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        document.querySelectorAll('#start-screen .btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                startGame(e.target.getAttribute('data-difficulty'));
+            });
+        });
+
+        UI.restartBtn.addEventListener('click', () => {
+            UI.resultScreen.classList.add('hidden');
+            UI.startScreen.classList.remove('hidden');
+            gameState = 'START';
+        });
+
+        draw();
+        loop();
+    </script>
 </body>
 </html>
