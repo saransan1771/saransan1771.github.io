@@ -164,6 +164,7 @@
             <button class="btn" data-difficulty="normal">ノーマル (通常)</button>
             <button class="btn btn-hard" data-difficulty="hard">ハード (出現頻度・制限時間 倍)</button>
             <button class="btn btn-endless" data-difficulty="endless">エンドレス (制限時間なし)</button>
+            <button class="btn btn-debug" data-difficulty="debug">デバッグ (常に撃破1でレベルアップ)</button>
         </div>
 
         <!-- レベルアップ選択画面 -->
@@ -256,6 +257,9 @@
 
         // 入力管理
         const keys = {};
+        let isPointerDown = false;
+        let pointerX = 0;
+
         window.addEventListener('keydown', (e) => {
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) keys.left = true;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) keys.right = true;
@@ -267,11 +271,22 @@
 
         canvas.addEventListener('pointerdown', (e) => {
             if (gameState !== 'PLAYING') return;
+            isPointerDown = true;
             const rect = canvas.getBoundingClientRect();
-            player.dir = (e.clientX - rect.left < canvas.width / 2) ? -1 : 1;
+            pointerX = e.clientX - rect.left;
         });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isPointerDown || gameState !== 'PLAYING') return;
+            const rect = canvas.getBoundingClientRect();
+            pointerX = e.clientX - rect.left;
+        });
+
         canvas.addEventListener('pointerup', () => {
-            if (gameState === 'PLAYING') player.dir = 0;
+            isPointerDown = false;
+        });
+        canvas.addEventListener('pointercancel', () => {
+            isPointerDown = false;
         });
 
         function initGame(difficulty) {
@@ -749,12 +764,22 @@
             }
         }
 
-        function update() {
+            function update() {
             if (gameState !== 'PLAYING') return;
 
-            if (keys.left) player.x -= player.speed;
-            else if (keys.right) player.x += player.speed;
-            else if (player.dir !== 0) player.x += player.dir * player.speed;
+            // 移動処理（キー入力、またはタップ長押し位置による移動）
+            if (keys.left) {
+                player.x -= player.speed;
+            } else if (keys.right) {
+                player.x += player.speed;
+            } else if (isPointerDown) {
+                // 押している場所が自キャラより左なら左へ、右なら右へ移動
+                if (pointerX < player.x - 4) {
+                    player.x -= player.speed;
+                } else if (pointerX > player.x + 4) {
+                    player.x += player.speed;
+                }
+            }
             
             player.x = Math.max(LANE_MIN_X, Math.min(LANE_MAX_X, player.x));
 

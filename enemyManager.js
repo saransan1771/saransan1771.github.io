@@ -89,7 +89,8 @@ class EnemyManager {
                 x: spawnX,
                 y: -40,
                 size: def.size,
-                speed: (def.baseSpeed + Math.random() * 1.5 + (level - 1) * 0.15) * 0.5,
+                // 丸型の敵の速度を70%に調整
+                speed: ((def.baseSpeed + Math.random() * 1.5 + (level - 1) * 0.15) * 0.5) * 0.7,
                 hp: baseHp * 2,
                 maxHp: baseHp * 2,
                 rotation: 0,
@@ -102,7 +103,8 @@ class EnemyManager {
                 x: spawnX,
                 y: -30,
                 size: def.size,
-                speed: def.baseSpeed + Math.random() * 1.5 + (level - 1) * 0.15,
+                // 三角の敵の速度を70%に調整
+                speed: (def.baseSpeed + Math.random() * 1.5 + (level - 1) * 0.15) * 0.7,
                 hp: baseHp,
                 maxHp: baseHp
             });

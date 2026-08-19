@@ -90,7 +90,7 @@
 <body>
 
   <!-- 操作バー -->
-  <div class="controls">
+  <div id="controls" class="controls">
     <label for="htmlSelect">ゲームを選択:</label>
     <select id="htmlSelect" onchange="loadSelectedHtml()">
       <!-- 初期状態（未選択） -->
@@ -117,11 +117,15 @@
       const selectElement = document.getElementById('htmlSelect');
       const frame = document.getElementById('playerFrame');
       const placeholder = document.getElementById('placeholder');
+      const controls = document.getElementById('controls');
 
       if (selectElement.value) {
-        // 選択されたらiframeにURLを設定し、メッセージを非表示にする
+        // 選択されたらiframeにURLを設定
         frame.src = selectElement.value;
+        // 中央メッセージを非表示にする
         placeholder.style.display = 'none';
+        // 上部の操作バーを非表示にする
+        controls.style.display = 'none';
       }
     }
   </script>
