@@ -182,7 +182,6 @@
             <button class="btn" data-difficulty="normal">ノーマル (通常)</button>
             <button class="btn btn-hard" data-difficulty="hard">ハード (出現頻度・制限時間 倍)</button>
             <button class="btn btn-endless" data-difficulty="endless">エンドレス (制限時間なし)</button>
-            <button class="btn btn-debug" data-difficulty="debug">デバッグ (常に撃破1でレベルアップ)</button>
         </div>
 
         <!-- レベルアップ選択画面 -->
@@ -202,6 +201,10 @@
         <canvas id="gameCanvas" width="360" height="600"></canvas>
     </div>
 
+    <!-- オーディオ要素 (BGM & SE) -->
+    <audio id="bgmAudio" src="8-bit_Aggressive1.mp3" preload="auto" loop></audio>[cite: 6]
+    <audio id="destroySe" src="destroy.mp3" preload="auto"></audio>[cite: 6]
+
     <!-- 外部の敵マネージャーファイル読み込み -->
     <script src="enemyManager.js"></script>
 
@@ -209,6 +212,21 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
+        const bgmAudio = document.getElementById('bgmAudio');
+        bgmAudio.volume = 0.5; // BGM音量
+
+        const destroySe = document.getElementById('destroySe');
+        destroySe.volume = 0.6; // SE音量
+
+        // 連続撃破時に音が途切れないようクローン再生するヘルパー関数
+        function playDestroySe() {
+            const clone = destroySe.cloneNode();
+            clone.volume = destroySe.volume;
+            clone.play().catch(error => {
+                console.log("SEの再生がブロックされました:", error);
+            });
+        }
 
         // UI要素
         const UI = {
@@ -278,7 +296,6 @@
         let isPointerDown = false;
         let pointerX = 0;
 
-        // キャンバス上の実座標に変換する関数（スマホの拡大縮小対策）
         function getCanvasPointerX(e) {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -368,6 +385,11 @@
             UI.hud.classList.remove('hidden');
             gameState = 'PLAYING';
 
+            bgmAudio.currentTime = 0;
+            bgmAudio.play().catch(error => {
+                console.log("BGMの自動再生がブロックされました:", error);
+            });
+
             clearInterval(gameTimer);
             clearTimeout(spawnTimer);
 
@@ -398,7 +420,6 @@
             
             const elapsed = getElapsedSeconds();
             const minutesPassed = Math.floor(elapsed / 60);
-            // 出現の重み：初期0、1分毎に5増加、最大30
             const starWeight = Math.min(30, minutesPassed * 5);
 
             if (gameState === 'PLAYING') {
@@ -478,6 +499,9 @@
             gameState = 'GAMEOVER';
             clearInterval(gameTimer);
             clearTimeout(spawnTimer);
+            
+            bgmAudio.pause();
+
             UI.hud.classList.add('hidden');
             UI.resultScreen.classList.remove('hidden');
             
@@ -489,6 +513,9 @@
 
         function destroyEnemy(index) {
             let en = enemyManager.enemies[index];
+
+            // 敵撃破時にSEを再生
+            playDestroySe();
 
             if (en.type === 'circle') {
                 const explosionDamage = Math.floor(en.maxHp / 2);
@@ -585,6 +612,9 @@
                     const speed = 9.0;
                     const isMax = (player.pingpongLevel >= 5);
 
+                    let baseDamage = 2 + player.powerLevel;
+                    const finalDamage = isMax ? baseDamage * 2 : baseDamage;
+
                     for (let i = 0; i < count; i++) {
                         const angle = -Math.PI + Math.random() * Math.PI;
                         pingpongBalls.push({
@@ -592,8 +622,9 @@
                             y: player.y - 15,
                             vx: Math.cos(angle) * speed,
                             vy: Math.sin(angle) * speed,
-                            size: isMax ? 5.0 : 2.5,
-                            damage: (isMax ? 2 : 1) + player.powerLevel,
+                            size: 2.5,
+                            isMax: isMax,
+                            damage: finalDamage,
                             life: 600,
                             hitEnemies: new Set()
                         });
@@ -607,7 +638,15 @@
                 ball.y += ball.vy;
                 ball.life--;
 
-                if (ball.life <= 0 || ball.y < ball.size) {
+                if (ball.life <= 0) {
+                    pingpongBalls.splice(p, 1);
+                    continue;
+                }
+
+                if (ball.isMax && ball.y < ball.size) {
+                    ball.y = ball.size;
+                    ball.vy *= -1;
+                } else if (!ball.isMax && ball.y < ball.size) {
                     pingpongBalls.splice(p, 1);
                     continue;
                 }
@@ -787,16 +826,14 @@
             }
         }
 
-            function update() {
+        function update() {
             if (gameState !== 'PLAYING') return;
 
-            // 移動処理（キー入力、またはタップ長押し位置による移動）
             if (keys.left) {
                 player.x -= player.speed;
             } else if (keys.right) {
                 player.x += player.speed;
             } else if (isPointerDown) {
-                // 押している場所が自キャラより左なら左へ、右なら右へ移動
                 if (pointerX < player.x - 4) {
                     player.x -= player.speed;
                 } else if (pointerX > player.x + 4) {
@@ -811,11 +848,9 @@
             handleBombs();
             handleSword();
 
-            // 敵マネージャーのアップデート処理（移動・画面下部到達判定、子機生成コールバック）
             enemyManager.update(player.y, () => {
                 endGame(false);
             }, (spawnX, spawnY) => {
-                // 星型から定期的に生み出されるHP1の小さな敵
                 enemyManager.enemies.push({
                     type: 'normal',
                     x: spawnX,
@@ -827,7 +862,6 @@
                 });
             });
 
-            // プレイヤーと敵の直接衝突判定
             for (let i = enemyManager.enemies.length - 1; i >= 0; i--) {
                 let en = enemyManager.enemies[i];
                 let dx = player.x - en.x;
@@ -835,6 +869,7 @@
                 let hitRadius = (en.type === 'bar') ? en.width : (en.size / 2);
 
                 if (dx * dx + dy * dy < (player.size / 2 + hitRadius) ** 2) {
+                    playDestroySe(); // 自機にぶつかって消滅したときもSEを鳴らす場合
                     enemyManager.enemies.splice(i, 1);
                     score++;
                     exp++;
@@ -856,7 +891,6 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // レーン描画
             ctx.beginPath();
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 4;
@@ -864,7 +898,6 @@
             ctx.lineTo(LANE_MAX_X + 10, LANE_Y);
             ctx.stroke();
 
-            // 弾描画
             for (let b of bullets) {
                 ctx.fillStyle = b.piercing ? '#00bcd4' : '#FFEB3B';
                 ctx.beginPath();
@@ -872,9 +905,8 @@
                 ctx.fill();
             }
 
-            // ピンポン玉描画
             for (let ball of pingpongBalls) {
-                ctx.fillStyle = '#ff4081';
+                ctx.fillStyle = ball.isMax ? '#2196F3' : '#ff4081';
                 ctx.beginPath();
                 ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -883,18 +915,15 @@
                 ctx.stroke();
             }
 
-　　　　　　// 爆弾描画
             for (let bomb of bombs) {
                 let renderColor = bomb.isMax ? '#2196F3' : '#ff5722';
                 let strokeColor = bomb.isMax ? '#e3f2fd' : '#ffeb3b';
 
-                // 停止状態のときは一定間隔で点滅させる
                 if (bomb.state === 'stopped') {
-                    // stopTimerの進行に応じて点滅（例：約8フレーム毎に色を反転）
                     const isFlash = Math.floor(bomb.stopTimer / 8) % 2 === 0;
                     if (isFlash) {
-                        renderColor = '#ffffff'; // 点滅時に白く光る
-                        strokeColor = '#ff0000'; // 枠線も赤く強調
+                        renderColor = '#ffffff';
+                        strokeColor = '#ff0000';
                     }
                 }
 
@@ -907,10 +936,8 @@
                 ctx.stroke();
             }
 
-            // 敵の描画をEnemyManagerに委譲
             enemyManager.draw(ctx);
 
-            // エフェクト描画
             for (let eff of homingSlashEffects) {
                 ctx.save();
                 ctx.translate(eff.x, eff.y);
@@ -931,7 +958,6 @@
                 ctx.restore();
             }
 
-            // 剣の軌跡描画
             if (player.swordReachLevel > 0 && swordSwingTimer > 0) {
                 let baseReach = 15 + player.swordReachLevel * 36;
                 let swordLength = (player.swordReachLevel >= 4) ? baseReach * 0.4 : baseReach;
@@ -950,7 +976,6 @@
                 ctx.stroke();
             }
 
-            // 自機描画
             const pHalf = player.size / 2;
             ctx.fillStyle = '#4CAF50';
             ctx.fillRect(player.x - pHalf, player.y - pHalf, player.size, player.size);
@@ -958,10 +983,8 @@
             ctx.lineWidth = 2;
             ctx.strokeRect(player.x - pHalf, player.y - pHalf, player.size, player.size);
 
-            // 自機の目玉描画
             const eyeOffsets = [-6, 6];
             for (let offsetX of eyeOffsets) {
-                // 白目
                 ctx.beginPath();
                 ctx.arc(player.x + offsetX, player.y - 2, 4.5, 0, Math.PI * 2);
                 ctx.fillStyle = '#fff';
@@ -970,7 +993,6 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
-                // 黒目（移動方向や少しランダムに動くように演出も可能ですが、まずは中心に配置）
                 ctx.beginPath();
                 ctx.arc(player.x + offsetX, player.y - 2, 2, 0, Math.PI * 2);
                 ctx.fillStyle = '#000';
@@ -991,6 +1013,8 @@
         });
 
         UI.restartBtn.addEventListener('click', () => {
+            bgmAudio.pause();
+            bgmAudio.currentTime = 0;
             UI.resultScreen.classList.add('hidden');
             UI.startScreen.classList.remove('hidden');
             gameState = 'START';
