@@ -1,4 +1,4 @@
-// entities.js
+// entities.js - 完全修正版
 
 class Seed {
   constructor(x, y, parentType = null) {
@@ -53,17 +53,17 @@ class Plant {
 
     if (this.type === 'small') {
       this.hp = 1.5;
-      this.maxHp = 6.0;
+      this.maxHp = 18.0; // 3倍
       this.color = '#A5D6A7';
     } else {
       this.hp = 3.0;
-      this.maxHp = 18.0;
+      this.maxHp = 54.0; // 3倍
       this.color = '#1B5E20';
     }
   }
 
   get size() {
-    return Math.max(1.5, this.hp * 0.7);
+    return Math.max(1.5, this.hp * 0.35);
   }
 
   update() {
@@ -77,8 +77,9 @@ class Plant {
     } else if (this.hp >= this.maxHp && availableSoil >= 5.0) {
       if (Math.random() < 0.015 && (plants.length + seeds.length) < 500) {
         const spreadDistance = 50;
-        const newX = Math.min(Math.max(this.x + (Math.random() - 0.5) * spreadDistance, 10), simCanvas.width - 10);
-        const newY = Math.min(Math.max(this.y + (Math.random() - 0.5) * spreadDistance, 10), simCanvas.height - 10);
+        // 画面端を越えたらループ
+        let newX = (this.x + (Math.random() - 0.5) * spreadDistance + simCanvas.width) % simCanvas.width;
+        let newY = (this.y + (Math.random() - 0.5) * spreadDistance + simCanvas.height) % simCanvas.height;
         
         seeds.push(new Seed(newX, newY, this.type));
         soilGrid[row][col] -= 1.0;
@@ -144,17 +145,17 @@ class Herbivore {
       seeds.push(new Seed(this.x, this.y));
     }
 
+    // 死亡処理（種子ドロップ含む）
     if (this.hp <= 0) {
       this.isDead = true;
       this.vx = 0;
       this.vy = 0;
 
-      // 死亡時に周囲に 2〜4 個の種子を落とす
-      const dropCount = Math.floor(Math.random() * 3) + 2; 
+      const dropCount = Math.floor(Math.random() * 3) + 2;
       for (let i = 0; i < dropCount; i++) {
         if ((plants.length + seeds.length) < 500) {
-          const dropX = Math.min(Math.max(this.x + (Math.random() - 0.5) * 30, 10), simCanvas.width - 10);
-          const dropY = Math.min(Math.max(this.y + (Math.random() - 0.5) * 30, 10), simCanvas.height - 10);
+          let dropX = (this.x + (Math.random() - 0.5) * 30 + simCanvas.width) % simCanvas.width;
+          let dropY = (this.y + (Math.random() - 0.5) * 30 + simCanvas.height) % simCanvas.height;
           seeds.push(new Seed(dropX, dropY));
         }
       }
@@ -286,14 +287,9 @@ class Herbivore {
     this.vx = (this.vx / currentSpeed) * currentMaxSpeed;
     this.vy = (this.vy / currentSpeed) * currentMaxSpeed;
 
-    this.x += this.vx;
-    this.y += this.vy;
-
-    const margin = this.size;
-    if (this.x < margin) { this.x = margin; this.vx *= -1; }
-    if (this.x > simCanvas.width - margin) { this.x = simCanvas.width - margin; this.vx *= -1; }
-    if (this.y < margin) { this.y = margin; this.vy *= -1; }
-    if (this.y > simCanvas.height - margin) { this.y = simCanvas.height - margin; this.vy *= -1; }
+    // 移動と画面端ループ
+    this.x = (this.x + this.vx + simCanvas.width) % simCanvas.width;
+    this.y = (this.y + this.vy + simCanvas.height) % simCanvas.height;
 
     if (this.hp > this.maxHp * 0.9 && this.breedCooldown <= 0 && aliveCount < 180) {
       this.hp -= this.maxHp * 0.4;
@@ -383,13 +379,13 @@ class Carnivore {
       this.mutateType();
     }
 
+    // 死亡処理（種子ドロップ含む）
     if (this.hp <= 0) {
-      // 死亡時に周囲に 2〜4 個の種子を落とす
       const dropCount = Math.floor(Math.random() * 3) + 2;
       for (let i = 0; i < dropCount; i++) {
         if ((plants.length + seeds.length) < 500) {
-          const dropX = Math.min(Math.max(this.x + (Math.random() - 0.5) * 40, 10), simCanvas.width - 10);
-          const dropY = Math.min(Math.max(this.y + (Math.random() - 0.5) * 40, 10), simCanvas.height - 10);
+          let dropX = (this.x + (Math.random() - 0.5) * 40 + simCanvas.width) % simCanvas.width;
+          let dropY = (this.y + (Math.random() - 0.5) * 40 + simCanvas.height) % simCanvas.height;
           seeds.push(new Seed(dropX, dropY));
         }
       }
@@ -501,7 +497,6 @@ class Carnivore {
 
     const hpRatio = Math.max(0, this.hp / this.maxHp);
     const ageSpeedDebuff = 1 / (1 + this.age * 0.0005);
-    
     const hpBoost = (this.type === 'typeA') ? 2.4 : 1.6;
     
     const currentMaxSpeed = Params.carnSpeed * (1 + (1 - hpRatio) * hpBoost) * ageSpeedDebuff;
@@ -510,14 +505,9 @@ class Carnivore {
     this.vx = (this.vx / currentSpeed) * currentMaxSpeed;
     this.vy = (this.vy / currentSpeed) * currentMaxSpeed;
 
-    this.x += this.vx;
-    this.y += this.vy;
-
-    const margin = this.size;
-    if (this.x < margin) { this.x = margin; this.vx *= -1; }
-    if (this.x > simCanvas.width - margin) { this.x = simCanvas.width - margin; this.vx *= -1; }
-    if (this.y < margin) { this.y = margin; this.vy *= -1; }
-    if (this.y > simCanvas.height - margin) { this.y = simCanvas.height - margin; this.vy *= -1; }
+    // 移動と画面端ループ
+    this.x = (this.x + this.vx + simCanvas.width) % simCanvas.width;
+    this.y = (this.y + this.vy + simCanvas.height) % simCanvas.height;
 
     if (this.hp > 160 && this.breedCooldown <= 0 && carnivores.length < 70) {
       this.hp -= 70;
