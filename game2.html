@@ -2,375 +2,528 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>地下迷宮の冒険 - ゲームブック</title>
+  <title>生態系観察シミュレーター - 広域・階層捕食モデル</title>
   <style>
-    :root {
-      --bg-color: #1c1815;
-      --card-bg: #2a2421;
-      --paper-bg: #f4e8c1;
-      --paper-text: #2b1d0c;
-      --accent-color: #d4a359;
-      --danger-color: #b33939;
-      --btn-bg: #3a302a;
-      --btn-active: #57483e;
-    }
-
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
+    * { box-sizing: border-box; }
     body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1a1a1a;
+      color: #eee;
       margin: 0;
-      padding: 0;
-      background-color: var(--bg-color);
-      color: #e0d8c3;
-      font-family: 'Hiragino Mincho ProN', 'Yu Mincho', Georgia, serif;
-      display: flex;
-      justify-content: center;
-      min-height: 100vh;
-    }
-
-    #game-container {
-      width: 100%;
-      max-width: 500px;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      background-color: var(--card-bg);
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
-    }
-
-    /* ステータスバー */
-    #status-bar {
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      padding: 12px;
-      background-color: #12100e;
-      border-bottom: 2px solid var(--accent-color);
-      font-size: 1rem;
-      font-weight: bold;
-    }
-
-    .status-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* 本文エリア */
-    #story-card {
-      flex: 1;
-      margin: 15px;
       padding: 20px;
-      background-color: var(--paper-bg);
-      color: var(--paper-text);
-      border-radius: 8px;
-      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
-      overflow-y: auto;
-      line-height: 1.7;
-      font-size: 1.05rem;
-    }
-
-    /* ダイス結果エリア */
-    #dice-result {
-      display: none;
-      margin-top: 15px;
-      padding: 10px;
-      background-color: rgba(0, 0, 0, 0.08);
-      border-left: 4px solid var(--paper-text);
-      font-weight: bold;
-    }
-
-    /* 選択肢ボタンエリア */
-    #choices-container {
-      padding: 15px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      background-color: #1a1614;
-      border-top: 1px solid #332b25;
-    }
-
-    .choice-btn {
-      width: 100%;
-      min-height: 52px;
-      padding: 12px 16px;
-      background-color: var(--btn-bg);
-      color: #f0e6d2;
-      border: 1px solid var(--accent-color);
-      border-radius: 6px;
-      font-size: 1rem;
-      font-family: inherit;
-      text-align: left;
-      cursor: pointer;
-      transition: background-color 0.1s, transform 0.05s;
-      display: flex;
       align-items: center;
     }
-
-    .choice-btn:active {
-      background-color: var(--btn-active);
-      transform: scale(0.98);
+    h1 { margin-top: 0; margin-bottom: 20px; font-size: 1.8rem; }
+    .main-container {
+      display: flex;
+      gap: 20px;
+      max-width: 1800px;
+      width: 100%;
+      flex-wrap: wrap;
     }
-
-    .choice-number {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      background-color: var(--accent-color);
-      color: #000;
-      border-radius: 50%;
-      text-align: center;
+    #left-column {
+      flex: 1;
+      min-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    canvas {
+      background-color: #122212;
+      border: 2px solid #333;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+    #chartCanvas { background-color: #181818; }
+    #stats {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      padding: 10px 15px;
+      border-radius: 6px;
+      background-color: #2a2a2a;
       font-weight: bold;
-      margin-right: 12px;
-      flex-shrink: 0;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
+      border-left: 5px solid #888;
     }
+    .stat-box.plant { border-color: #4CAF50; color: #81C784; }
+    .stat-box.seed { border-color: #FFB74D; color: #FFE082; }
+    .stat-box.herbivore { border-color: #2196F3; color: #64B5F6; }
+    .stat-box.carnivore-pink { border-color: #FF80AB; color: #FF80AB; }
+    .stat-box.carnivore-red { border-color: #8B0000; color: #FF5252; }
+    .stat-box.soil { border-color: #8D6E63; color: #D7CCC8; }
+
+    .control-panel {
+      width: 320px;
+      background-color: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      max-height: 840px;
+      overflow-y: auto;
+    }
+    .control-panel h2 {
+      font-size: 1.2rem;
+      margin-top: 0;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+    }
+    .section-title {
+      font-weight: bold;
+      margin-top: 15px;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .soil-title { color: #D7CCC8; }
+    .plant-title { color: #81C784; }
+    .herbivore-title { color: #64B5F6; }
+    .carnivore-title { color: #E57373; }
+
+    .control-group { margin-bottom: 12px; }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: #ccc;
+    }
+    .control-group input[type="range"] {
+      width: 100%;
+      accent-color: #8D6E63;
+    }
+    
+    .btn-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .btn-reset { background-color: #ff9800; color: #fff; }
+    .btn-reset:hover { background-color: #e68a00; }
+    .btn-pause { background-color: #2196F3; color: #fff; }
+    .btn-pause:hover { background-color: #1e88e5; }
   </style>
 </head>
 <body>
 
-<div id="game-container">
-  <!-- ステータス表示 -->
-  <div id="status-bar">
-    <div class="status-item">❤️ HP: <span id="hp-val">10</span>/<span id="max-hp-val">10</span></div>
-    <div class="status-item">💰 金貨: <span id="gold-val">0</span></div>
-    <div class="status-item">🗡️ 武器: <span id="weapon-val">短剣</span></div>
+  <h1>生態系観察シミュレーター - 広域・階層捕食モデル</h1>
+
+  <div class="main-container">
+    <div id="left-column">
+      <canvas id="simCanvas" width="1400" height="840"></canvas>
+      <div id="stats">
+        <div class="stat-box soil">土壌: <span id="soilTotal">0</span></div>
+        <div class="stat-box plant">植物: <span id="plantCount">0</span></div>
+        <div class="stat-box seed">種子: <span id="seedCount">0</span></div>
+        <div class="stat-box herbivore">草食: <span id="herbivoreCount">0</span></div>
+        <div class="stat-box carnivore-pink">ピンク肉食: <span id="pinkCarnCount">0</span></div>
+        <div class="stat-box carnivore-red">濃赤肉食: <span id="redCarnCount">0</span></div>
+      </div>
+      <canvas id="chartCanvas" width="1400" height="160"></canvas>
+    </div>
+
+    <div class="control-panel">
+      <h2>設定パラメーター</h2>
+
+      <span class="section-title">■ 初期生成数 (リセット時に適用)</span>
+      <div class="control-group">
+        <label>初期植物数: <span id="val-initPlant">160</span></label>
+        <input type="range" id="initPlant" min="0" max="300" value="160">
+      </div>
+      <div class="control-group">
+        <label>初期草食動物数: <span id="val-initHerb">18</span></label>
+        <input type="range" id="initHerb" min="0" max="60" value="18">
+      </div>
+      <div class="control-group">
+        <label>初期ピンク肉食: <span id="val-initPinkCarn">4</span></label>
+        <input type="range" id="initPinkCarn" min="0" max="20" value="4">
+      </div>
+      <div class="control-group">
+        <label>初期濃赤肉食: <span id="val-initRedCarn">2</span></label>
+        <input type="range" id="initRedCarn" min="0" max="20" value="2">
+      </div>
+
+      <span class="section-title soil-title">🟫 土壌設定</span>
+      <div class="control-group">
+        <label>初期エリア土壌栄養: <span id="val-initSoil">20</span></label>
+        <input type="range" id="initSoil" min="0" max="100" value="20">
+      </div>
+
+      <span class="section-title plant-title">🌱 植物設定</span>
+      <div class="control-group">
+        <label>成長速度: <span id="val-plantGrowth">0.05</span></label>
+        <input type="range" id="plantGrowth" min="0.005" max="0.1" step="0.005" value="0.05">
+      </div>
+
+      <span class="section-title herbivore-title">🐰 草食動物設定</span>
+      <div class="control-group">
+        <label>基本速度: <span id="val-herbSpeed">1.0</span></label>
+        <input type="range" id="herbSpeed" min="0.25" max="2.5" step="0.05" value="1.0">
+      </div>
+      <div class="control-group">
+        <label>視界/仲間感知範囲 (px): <span id="val-herbVision">110</span></label>
+        <input type="range" id="herbVision" min="30" max="250" step="5" value="110">
+      </div>
+      <div class="control-group">
+        <label>群れの結束強度: <span id="val-flockWeight">0.3</span></label>
+        <input type="range" id="flockWeight" min="0.0" max="1.0" step="0.05" value="0.3">
+      </div>
+      <div class="control-group">
+        <label>HP基本消費量/フレーム: <span id="val-herbHpLoss">0.03</span></label>
+        <input type="range" id="herbHpLoss" min="0.005" max="0.3" step="0.005" value="0.03">
+      </div>
+
+      <span class="section-title carnivore-title">🦊 肉食動物設定</span>
+      <div class="control-group">
+        <label>基本速度: <span id="val-carnSpeed">1.2</span></label>
+        <input type="range" id="carnSpeed" min="0.25" max="3.0" step="0.05" value="1.2">
+      </div>
+      <div class="control-group">
+        <label>索敵範囲 (px): <span id="val-carnVision">150</span></label>
+        <input type="range" id="carnVision" min="40" max="300" step="5" value="150">
+      </div>
+      <div class="control-group">
+        <label>HP基本消費量/フレーム: <span id="val-carnHpLoss">0.10</span></label>
+        <input type="range" id="carnHpLoss" min="0.02" max="0.8" step="0.01" value="0.10">
+      </div>
+
+      <div class="btn-container">
+        <button id="btnReset" class="btn-reset">リセット</button>
+        <button id="btnPause" class="btn-pause">一時停止</button>
+      </div>
+    </div>
   </div>
 
-  <!-- テキスト表示エリア -->
-  <div id="story-card">
-    <div id="story-text"></div>
-    <div id="dice-result"></div>
-  </div>
+  <script>
+    const simCanvas = document.getElementById('simCanvas');
+    const simCtx = simCanvas.getContext('2d');
+    
+    const chartCanvas = document.getElementById('chartCanvas');
+    const chartCtx = chartCanvas.getContext('2d');
 
-  <!-- 選択肢ボタン -->
-  <div id="choices-container"></div>
-</div>
+    let isPaused = false;
+    let frameCount = 0;
 
-<script>
-  // プレイヤーのステータス管理
-  let state = {
-    hp: 10,
-    maxHp: 10,
-    gold: 0,
-    weapon: "短剣",
-    hasKey: false
-  };
+    const GRID_COLS = 20;
+    const GRID_ROWS = 20;
+    const CELL_WIDTH = simCanvas.width / GRID_COLS;
+    const CELL_HEIGHT = simCanvas.height / GRID_ROWS;
 
-  // ストーリーデータ（ノード管理）
-  const story = {
-    start: {
-      text: "あなたは古びた石造りの地下迷宮の入口に立っている。湿った冷気が肌を刺し、奥からはかすかな唸り声が聞こえる……。腰には使い古された短剣がある。",
-      choices: [
-        { text: "松明を灯して正面の階段を降りる", target: "stairs" },
-        { text: "壁沿いの狭い抜け道を調べる", target: "passage" }
-      ]
-    },
-    stairs: {
-      text: "広間に躍り出た。中央には大きな木箱が置かれているが、その手前には腹をすかせた巨大なネズミが立ちふさがっている！",
-      choices: [
-        { text: "短剣を構えてネズミに襲いかかる（要ダイス判定）", target: "fight_rat" },
-        { text: "手持ちの干し肉を投げて気をそらす", target: "feed_rat" }
-      ]
-    },
-    passage: {
-      text: "狭い通路を進むと、行き止まりに倒れた冒険者の骨を見つけた。骨の手に握られた小さな袋と、奥へ続く隠し扉がある。",
-      choices: [
-        { text: "袋を拾って隠し扉を開ける", target: "get_key", action: () => { state.gold += 5; state.hasKey = true; } },
-        { text: "触れずに隠し扉だけを開ける", target: "treasure_room" }
-      ]
-    },
-    get_key: {
-      text: "袋の中には金貨5枚と「鉄の鍵」が入っていた！あなたはそれらを懐にしまい、隠し扉の先へ進んだ。",
-      choices: [
-        { text: "先へ進む", target: "treasure_room" }
-      ]
-    },
-    feed_rat: {
-      text: "干し肉を投げつけると、ネズミは夢中でかぶりついた。その隙に宝箱に近づくことができる。",
-      choices: [
-        { text: "宝箱を調べる", target: "chest" }
-      ]
-    },
-    fight_rat: {
-      text: "サイコロを振って運を天に任せよう！",
-      diceCheck: {
-        targetRoll: 3, // 3以上で成功
-        onSuccess: {
-          text: "サイコロの目は【{roll}】！見事に短剣でネズミを追い払った！",
-          target: "chest"
-        },
-        onFailure: {
-          text: "サイコロの目は【{roll}】……！ネズミに噛みつかれ、2ポイントのダメージを受けた！",
-          target: "chest",
-          action: () => { damagePlayer(2); }
+    const BREED_COOLDOWN_FRAMES = 300;
+    const CARNIVORE_BREED_COOLDOWN_FRAMES = 900;
+    const SEED_GERMINATION_TIME = 600;
+
+    const Params = {
+      get initPlant() { return parseInt(document.getElementById('initPlant').value); },
+      get initHerb() { return parseInt(document.getElementById('initHerb').value); },
+      get initPinkCarn() { return parseInt(document.getElementById('initPinkCarn').value); },
+      get initRedCarn() { return parseInt(document.getElementById('initRedCarn').value); },
+      get initSoil() { return parseFloat(document.getElementById('initSoil').value); },
+      get plantGrowth() { return parseFloat(document.getElementById('plantGrowth').value); },
+      get herbSpeed() { return parseFloat(document.getElementById('herbSpeed').value); },
+      get herbVision() { return parseFloat(document.getElementById('herbVision').value); },
+      get flockWeight() { return parseFloat(document.getElementById('flockWeight').value); },
+      get herbHpLoss() { return parseFloat(document.getElementById('herbHpLoss').value); },
+      get carnSpeed() { return parseFloat(document.getElementById('carnSpeed').value); },
+      get carnVision() { return parseFloat(document.getElementById('carnVision').value); },
+      get carnHpLoss() { return parseFloat(document.getElementById('carnHpLoss').value); }
+    };
+
+    let soilGrid = [];
+    let plants = [];
+    let seeds = [];
+    let herbivores = [];
+    let carnivores = [];
+
+    function getGridCell(x, y) {
+      const col = Math.min(GRID_COLS - 1, Math.max(0, (x / CELL_WIDTH) | 0));
+      const row = Math.min(GRID_ROWS - 1, Math.max(0, (y / CELL_HEIGHT) | 0));
+      return { col, row };
+    }
+
+    function addNutrient(x, y, amount) {
+      const { col, row } = getGridCell(x, y);
+      soilGrid[row][col] += amount;
+    }
+  </script>
+
+  <!-- キャラクター管理用外部スクリプトの読込 -->
+  <script src="entities.js"></script>
+
+  <script>
+    const MAX_HISTORY = 120;
+    let historyData = { plant: [], herbivore: [], pinkCarn: [], redCarn: [] };
+
+    function drawSoil() {
+      for (let r = 0; r < GRID_ROWS; r++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          const val = soilGrid[r][c];
+          const intensity = Math.min(1, val / 150);
+          
+          simCtx.fillStyle = `rgba(100, 70, 30, ${intensity * 0.45})`;
+          simCtx.fillRect(c * CELL_WIDTH, r * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
+
+          simCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+          simCtx.strokeRect(c * CELL_WIDTH, r * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
         }
       }
-    },
-    chest: {
-      text: "宝箱には頑丈な錠前がかかっている。",
-      choices: [
-        { 
-          text: "鉄の鍵を使って開ける", 
-          target: "chest_open", 
-          condition: () => state.hasKey 
-        },
-        { text: "無理やりこじ開けようとする（要ダイス判定）", target: "force_chest" },
-        { text: "宝箱を諦めて奥の出口へ向かう", target: "exit_gate" }
-      ]
-    },
-    chest_open: {
-      text: "鍵が見事に合致した！箱を開けると、眩しい光とともに魔法の剣と金貨20枚を手に入れた！",
-      action: () => { state.gold += 20; state.weapon = "魔法の剣"; },
-      choices: [
-        { text: "誇らしく出口へ向かう", target: "exit_gate" }
-      ]
-    },
-    force_chest: {
-      text: "宝箱を壊そうと短剣を叩きつけた！",
-      diceCheck: {
-        targetRoll: 5, // 5以上で成功
-        onSuccess: {
-          text: "サイコロの目は【{roll}】！見事に錠前が砕け、中から金貨10枚を見つけた！",
-          target: "exit_gate",
-          action: () => { state.gold += 10; }
-        },
-        onFailure: {
-          text: "サイコロの目は【{roll}】。刃が弾け飛び、罠が発動して毒針が刺さった！（3ダメージ）",
-          target: "exit_gate",
-          action: () => { damagePlayer(3); }
+    }
+
+    function getTotatSoilNutrient() {
+      let total = 0;
+      for (let r = 0; r < GRID_ROWS; r++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          total += soilGrid[r][c];
         }
       }
-    },
-    exit_gate: {
-      text: "地上へと続く重い鉄格子が見えてきた。あなたは無事に地下迷宮から脱出することができた！",
-      choices: [
-        { text: "冒険の結果を見る", target: "ending" }
-      ]
-    },
-    ending: {
-      text: "", // JSで動的に構築
-      isEnding: true,
-      choices: [
-        { text: "もう一度最初から遊ぶ", target: "restart" }
-      ]
-    },
-    gameover: {
-      text: "あなたは力を使い果たし、倒れてしまった……。地下迷宮の闇があなたを包み込む。",
-      choices: [
-        { text: "タイトルに戻る", target: "restart" }
-      ]
-    }
-  };
-
-  // UI更新関数
-  function updateStatus() {
-    document.getElementById('hp-val').textContent = state.hp;
-    document.getElementById('max-hp-val').textContent = state.maxHp;
-    document.getElementById('gold-val').textContent = state.gold;
-    document.getElementById('weapon-val').textContent = state.weapon;
-  }
-
-  function damagePlayer(amount) {
-    state.hp = Math.max(0, state.hp - amount);
-    updateStatus();
-  }
-
-  // シーン描画
-  function renderScene(sceneKey) {
-    if (sceneKey === 'restart') {
-      state = { hp: 10, maxHp: 10, gold: 0, weapon: "短剣", hasKey: false };
-      updateStatus();
-      sceneKey = 'start';
+      return Math.round(total);
     }
 
-    const scene = story[sceneKey];
-    const storyTextEl = document.getElementById('story-text');
-    const diceEl = document.getElementById('dice-result');
-    const choicesEl = document.getElementById('choices-container');
+    function drawChart() {
+      const w = chartCanvas.width;
+      const h = chartCanvas.height;
+      const padding = 25;
 
-    diceEl.style.display = 'none';
-    choicesEl.innerHTML = '';
+      chartCtx.clearRect(0, 0, w, h);
 
-    // アクションの実行（ステータス変更など）
-    if (scene.action) {
-      scene.action();
-      updateStatus();
+      chartCtx.strokeStyle = '#333';
+      chartCtx.lineWidth = 1;
+      for (let y = padding; y <= h - padding; y += (h - padding * 2) / 4) {
+        chartCtx.beginPath();
+        chartCtx.moveTo(padding, y);
+        chartCtx.lineTo(w - padding, y);
+        chartCtx.stroke();
+      }
+
+      let maxVal = 100;
+      ['plant', 'herbivore', 'pinkCarn', 'redCarn'].forEach(type => {
+        const localMax = Math.max(...historyData[type], 0);
+        if (localMax > maxVal) maxVal = localMax;
+      });
+
+      function drawLine(data, color) {
+        if (data.length < 2) return;
+
+        chartCtx.strokeStyle = color;
+        chartCtx.lineWidth = 2;
+        chartCtx.beginPath();
+
+        const stepX = (w - padding * 2) / (MAX_HISTORY - 1);
+        const chartHeight = h - padding * 2;
+
+        for (let i = 0; i < data.length; i++) {
+          const x = padding + i * stepX;
+          const y = (h - padding) - (data[i] / maxVal) * chartHeight;
+
+          if (i === 0) {
+            chartCtx.moveTo(x, y);
+          } else {
+            chartCtx.lineTo(x, y);
+          }
+        }
+
+        chartCtx.stroke();
+      }
+
+      drawLine(historyData.plant, '#4CAF50');
+      drawLine(historyData.herbivore, '#2196F3');
+      drawLine(historyData.pinkCarn, '#FF80AB');
+      drawLine(historyData.redCarn, '#8B0000');
+
+      chartCtx.fillStyle = '#888';
+      chartCtx.font = '10px sans-serif';
+      chartCtx.fillText(`Max: ${Math.round(maxVal)}`, padding, 15);
+      chartCtx.fillText('0', 10, h - padding + 3);
+      chartCtx.fillText('個体数履歴 (時間経過 →)', w - 150, h - 8);
     }
 
-    // プレイヤー死亡チェック
-    if (state.hp <= 0 && sceneKey !== 'gameover') {
-      renderScene('gameover');
-      return;
+    function recordHistory(aliveHerb, pinkCount, redCount) {
+      historyData.plant.push(plants.length);
+      historyData.herbivore.push(aliveHerb);
+      historyData.pinkCarn.push(pinkCount);
+      historyData.redCarn.push(redCount);
+
+      if (historyData.plant.length > MAX_HISTORY) {
+        historyData.plant.shift();
+        historyData.herbivore.shift();
+        historyData.pinkCarn.shift();
+        historyData.redCarn.shift();
+      }
     }
 
-    // エンディング画面のテキスト生成
-    if (scene.isEnding) {
-      storyTextEl.innerHTML = `
-        <strong>【脱出成功！】</strong><br><br>
-        あなたの最終ステータス：<br>
-        ・残りHP: ${state.hp}/${state.maxHp}<br>
-        ・獲得した金貨: ${state.gold}枚<br>
-        ・装備: ${state.weapon}<br><br>
-        ${state.gold >= 25 ? "大富豪となって伝説として語り継がれた！" : "無事に生きて生還できただけでも良しとしよう。"}
-      `;
-    } else {
-      storyTextEl.textContent = scene.text;
+    function init() {
+      soilGrid = Array.from({ length: GRID_ROWS }, () => 
+        Array.from({ length: GRID_COLS }, () => Params.initSoil)
+      );
+
+      plants = Array.from({ length: Params.initPlant }, () => new Plant());
+      seeds = [];
+      herbivores = Array.from({ length: Params.initHerb }, () => new Herbivore());
+      
+      carnivores = [];
+      for (let i = 0; i < Params.initPinkCarn; i++) {
+        carnivores.push(new Carnivore(null, null, 0, 'typeA'));
+      }
+      for (let i = 0; i < Params.initRedCarn; i++) {
+        carnivores.push(new Carnivore(null, null, 0, 'typeC'));
+      }
+
+      historyData = { plant: [], herbivore: [], pinkCarn: [], redCarn: [] };
+      recordHistory(Params.initHerb, Params.initPinkCarn, Params.initRedCarn);
     }
 
-    // ダイス判定があるノードの場合
-    if (scene.diceCheck) {
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.innerHTML = `<span class="choice-number">🎲</span> ダイスを振る (1D6)`;
-      btn.onclick = () => {
-        const roll = Math.floor(Math.random() * 6) + 1;
-        const isSuccess = roll >= scene.diceCheck.targetRoll;
-        const resData = isSuccess ? scene.diceCheck.onSuccess : scene.diceCheck.onFailure;
+    function loop() {
+      if (!isPaused) {
+        simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
 
-        diceEl.style.display = 'block';
-        diceEl.textContent = resData.text.replace('{roll}', roll);
-        
-        if (resData.action) resData.action();
+        drawSoil();
 
-        // ダイス後の進むボタン作成
-        choicesEl.innerHTML = '';
-        const nextBtn = document.createElement('button');
-        nextBtn.className = 'choice-btn';
-        nextBtn.innerHTML = `<span class="choice-number">➔</span> 次へ進む`;
-        nextBtn.onclick = () => renderScene(resData.target);
-        choicesEl.appendChild(nextBtn);
-      };
-      choicesEl.appendChild(btn);
-      return;
+        // 種子処理
+        let writeIdx = 0;
+        for (let i = 0; i < seeds.length; i++) {
+          const s = seeds[i];
+          s.update();
+          if (!s.isGerminated) {
+            seeds[writeIdx++] = s;
+            s.draw();
+          }
+        }
+        seeds.length = writeIdx;
+
+        // 植物処理
+        writeIdx = 0;
+        for (let i = 0; i < plants.length; i++) {
+          const p = plants[i];
+          p.update();
+          if (p.hp > 0.05) {
+            plants[writeIdx++] = p;
+            p.draw();
+          }
+        }
+        plants.length = writeIdx;
+
+        // 草食動物のカウントと更新
+        let aliveHerb = 0;
+        for (let i = 0; i < herbivores.length; i++) {
+          if (!herbivores[i].isDead) aliveHerb++;
+        }
+
+        writeIdx = 0;
+        for (let i = 0; i < herbivores.length; i++) {
+          const h = herbivores[i];
+          h.update(aliveHerb);
+          if (h.hp > 0) {
+            herbivores[writeIdx++] = h;
+            h.draw();
+          }
+        }
+        herbivores.length = writeIdx;
+
+        // 肉食動物の更新
+        let hasPink = false;
+        let pinkCarnCount = 0;
+        let redCarnCount = 0;
+
+        writeIdx = 0;
+        for (let i = 0; i < carnivores.length; i++) {
+          const c = carnivores[i];
+          c.update();
+          if (c.hp <= 0) {
+            addNutrient(c.x, c.y, 25);
+          } else {
+            carnivores[writeIdx++] = c;
+            if (c.type === 'typeA') {
+              hasPink = true;
+              pinkCarnCount++;
+            } else {
+              redCarnCount++;
+            }
+          }
+        }
+        carnivores.length = writeIdx;
+
+        // 種の反転判定
+        if (!hasPink && carnivores.length > 0) {
+          for (let i = 0; i < carnivores.length; i++) {
+            if (carnivores[i].type === 'typeC') {
+              carnivores[i].type = 'typeA';
+            }
+          }
+          pinkCarnCount = carnivores.length;
+          redCarnCount = 0;
+        }
+
+        for (let i = 0; i < carnivores.length; i++) {
+          carnivores[i].draw();
+        }
+
+        const deadHerb = herbivores.length - aliveHerb;
+
+        document.getElementById('soilTotal').textContent = getTotatSoilNutrient();
+        document.getElementById('plantCount').textContent = plants.length;
+        document.getElementById('seedCount').textContent = seeds.length;
+        document.getElementById('herbivoreCount').textContent = `${aliveHerb} (${deadHerb})`;
+        document.getElementById('pinkCarnCount').textContent = pinkCarnCount;
+        document.getElementById('redCarnCount').textContent = redCarnCount;
+
+        frameCount++;
+        if (frameCount % 10 === 0) {
+          recordHistory(aliveHerb, pinkCarnCount, redCarnCount);
+          drawChart();
+        }
+      }
+
+      requestAnimationFrame(loop);
     }
 
-    // 選択肢の表示
-    if (scene.choices) {
-      scene.choices.forEach((choice, index) => {
-        // 条件（鍵を持っているか等）を満たしていない場合は非表示
-        if (choice.condition && !choice.condition()) return;
+    function setupUIEvents() {
+      const sliders = [
+        'initPlant', 'initHerb', 'initPinkCarn', 'initRedCarn', 'initSoil',
+        'plantGrowth', 'herbSpeed', 'herbVision', 'flockWeight', 'herbHpLoss',
+        'carnSpeed', 'carnVision', 'carnHpLoss'
+      ];
 
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn';
-        btn.innerHTML = `<span class="choice-number">${index + 1}</span> ${choice.text}`;
-        btn.onclick = () => renderScene(choice.target);
-        choicesEl.appendChild(btn);
+      sliders.forEach(id => {
+        const input = document.getElementById(id);
+        const valSpan = document.getElementById('val-' + id);
+        input.addEventListener('input', () => {
+          valSpan.textContent = input.value;
+        });
+      });
+
+      document.getElementById('btnReset').addEventListener('click', () => {
+        init();
+      });
+
+      const btnPause = document.getElementById('btnPause');
+      btnPause.addEventListener('click', () => {
+        isPaused = !isPaused;
+        btnPause.textContent = isPaused ? '再開' : '一時停止';
+        btnPause.style.backgroundColor = isPaused ? '#4CAF50' : '#2196F3';
       });
     }
-  }
 
-  // 初期化
-  updateStatus();
-  renderScene('start');
-</script>
-
+    setupUIEvents();
+    init();
+    loop();
+  </script>
 </body>
 </html>

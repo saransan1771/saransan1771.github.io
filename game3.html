@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スライム育成フィールド</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background: #12151c;
+            color: #d0e8ff;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 100%;
+            max-width: 440px;
+            height: 700px;
+            background: #1e222d;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .status-panel {
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .status-item { display: flex; justify-content: space-between; }
+        .val { font-weight: bold; color: #00f0ff; }
+
+        /* フィールド描画用 Canvas */
+        #field-container {
+            flex-grow: 1;
+            margin: 12px 0;
+            position: relative;
+            background: #0d131d;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 210, 255, 0.2);
+            overflow: hidden;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* 操作パネル */
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        button {
+            padding: 12px 0;
+            background: #2b3245;
+            border: 1px solid #3d465e;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #38425d; border-color: #00f0ff; }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="status-panel">
+        <div class="status-grid">
+            <div class="status-item"><span>名前:</span><span class="val" id="name">マイ・スライム</span></div>
+            <div class="status-item"><span>大きさ:</span><span class="val" id="stat-size">10.0 cm</span></div>
+            <div class="status-item"><span>ぷにぷに度:</span><span class="val" id="stat-softness">50</span></div>
+            <div class="status-item"><span>はやさ:</span><span class="val" id="stat-speed">10</span></div>
+        </div>
+    </div>
+
+    <div id="field-container">
+        <canvas id="fieldCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <button onclick="feed()">ごはん</button>
+        <button onclick="play()">あそび</button>
+        <button onclick="train()">くんれん</button>
+    </div>
+</div>
+
+<script>
+    // フィールド全体の領域サイズ
+    const WORLD_WIDTH = 2000;
+    const WORLD_HEIGHT = 2000;
+
+    // 育成スライムのデータ
+    const playerSlime = {
+        x: WORLD_WIDTH / 2,
+        y: WORLD_HEIGHT / 2,
+        vx: 1, vy: 1,
+        size: 10.0,
+        softness: 50,
+        speed: 10,
+        colorMain: '#00d2ff',
+        colorSub: '#0066ff',
+        isPlayer: true
+    };
+
+    // 広大なフィールドに合わせてNPC数を増量
+    const npcSlimes = Array.from({ length: 25 }, (_, i) => ({
+        x: Math.random() * (WORLD_WIDTH - 100) + 50,
+        y: Math.random() * (WORLD_HEIGHT - 100) + 50,
+        vx: Math.random() - 0.5,
+        vy: Math.random() - 0.5,
+        radius: 12 + Math.random() * 8,
+        colorMain: ['#ff5577', '#55ff77', '#ffcc00', '#aa55ff', '#ff9900'][i % 5],
+        colorSub: ['#aa0033', '#00aa33', '#cc6600', '#5500aa', '#cc3300'][i % 5],
+        phaseOffset: Math.random() * 10
+    }));
+
+    const canvas = document.getElementById('fieldCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // UI更新
+    function updateUI() {
+        document.getElementById('stat-size').textContent = `${playerSlime.size.toFixed(1)} cm`;
+        document.getElementById('stat-softness').textContent = playerSlime.softness;
+        document.getElementById('stat-speed').textContent = playerSlime.speed;
+    }
+
+    // 育成コマンド
+    function feed() {
+        playerSlime.size += 0.8;
+        playerSlime.softness = Math.max(10, playerSlime.softness - 2);
+        updateUI();
+    }
+
+    function play() {
+        playerSlime.softness += 5;
+        playerSlime.speed += 1;
+        updateUI();
+    }
+
+    function train() {
+        playerSlime.speed += 3;
+        playerSlime.size = Math.max(5, playerSlime.size - 0.2);
+        updateUI();
+    }
+
+    // グリッド線描画（広大なマップの移動感を視覚化）
+    function drawMapGrid(camX, camY) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        const gridSize = 100;
+
+        const startX = Math.floor(camX / gridSize) * gridSize;
+        const startY = Math.floor(camY / gridSize) * gridSize;
+
+        for (let x = startX; x < camX + canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, camY);
+            ctx.lineTo(x, camY + canvas.height);
+            ctx.stroke();
+        }
+
+        for (let y = startY; y < camY + canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(camX, y);
+            ctx.lineTo(camX + canvas.width, y);
+            ctx.stroke();
+        }
+
+        // マップの境界線を描画
+        ctx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    }
+
+    // 描画ロジック
+    function drawSlime(s, time) {
+        ctx.save();
+        ctx.translate(s.x, s.y);
+
+        const radius = s.isPlayer ? 10 + (s.size * 1.2) : s.radius;
+
+        // 座標(s.x)を計算から外し、時間の経過(time)のみでゆったり波打つ
+        const phase = s.phaseOffset || 0;
+        const squish = Math.sin(time * 0.0025 + phase) * 0.08;
+        
+        const scaleX = 1 + squish;
+        const scaleY = 1 - squish;
+
+        // ※ プレイヤーの光るオーラ処理は削除
+
+        // 体（楕円）
+        ctx.beginPath();
+        ctx.ellipse(0, 0, radius * scaleX, radius * 0.85 * scaleY, 0, 0, Math.PI * 2);
+        
+        const grad = ctx.createRadialGradient(-radius*0.3, -radius*0.3, radius*0.1, 0, 0, radius);
+        grad.addColorStop(0, s.colorMain);
+        grad.addColorStop(1, s.colorSub);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // 目の描画（白目＋黒目）
+        const eyeOffset = radius * 0.35 * scaleX;
+        const eyeY = -radius * 0.15 * scaleY;
+        const whiteRadius = Math.max(3, radius * 0.2);
+        const pupilRadius = whiteRadius * 0.5;
+
+        // 進行方向への黒目のズレ（目線）
+        const dirLen = Math.hypot(s.vx, s.vy) || 1;
+        const pupilOffsetX = (s.vx / dirLen) * (whiteRadius * 0.3);
+        const pupilOffsetY = (s.vy / dirLen) * (whiteRadius * 0.3);
+
+        [-eyeOffset, eyeOffset].forEach(offsetX => {
+            // 白目
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(offsetX, eyeY, whiteRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 黒目
+            ctx.fillStyle = '#111122';
+            ctx.beginPath();
+            ctx.arc(offsetX + pupilOffsetX, eyeY + pupilOffsetY, pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+
+    // 移動制御（WORLDの境界判定に変更）
+    function updatePosition(s) {
+        const currentSpeed = s.isPlayer ? (0.5 + s.speed * 0.08) : 1.0;
+
+        if (Math.random() < 0.03) {
+            const angle = (Math.random() - 0.5) * 1.5;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const nx = s.vx * cos - s.vy * sin;
+            const ny = s.vx * sin + s.vy * cos;
+            s.vx = nx; s.vy = ny;
+        }
+
+        const len = Math.hypot(s.vx, s.vy) || 1;
+        s.x += (s.vx / len) * currentSpeed;
+        s.y += (s.vy / len) * currentSpeed;
+
+        const radius = s.isPlayer ? 10 + (s.size * 1.2) : s.radius;
+        if (s.x - radius < 0) { s.x = radius; s.vx *= -1; }
+        if (s.x + radius > WORLD_WIDTH) { s.x = WORLD_WIDTH - radius; s.vx *= -1; }
+        if (s.y - radius < 0) { s.y = radius; s.vy *= -1; }
+        if (s.y + radius > WORLD_HEIGHT) { s.y = WORLD_HEIGHT - radius; s.vy *= -1; }
+    }
+
+    // メインループ
+    function loop(time) {
+        // 位置更新
+        npcSlimes.forEach(updatePosition);
+        updatePosition(playerSlime);
+
+        // 画面クリア
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // カメラ位置の計算（プレイヤーを中心へ配置）
+        const cameraX = playerSlime.x - canvas.width / 2;
+        const cameraY = playerSlime.y - canvas.height / 2;
+
+        ctx.save();
+        // プレイヤーを中心に画面全体を平行移動
+        ctx.translate(-cameraX, -cameraY);
+
+        // 背景グリッドと外枠の描画
+        drawMapGrid(cameraX, cameraY);
+
+        // NPCおよびプレイヤーの描画
+        npcSlimes.forEach(npc => drawSlime(npc, time));
+        drawSlime(playerSlime, time);
+
+        ctx.restore();
+
+        requestAnimationFrame(loop);
+    }
+
+    updateUI();
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>
